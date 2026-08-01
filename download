@@ -1,3 +1,0 @@
-.DS_Store
-.vercel
-node_modules/
