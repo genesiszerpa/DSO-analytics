@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSO Dashboard | Finanzas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --ink:#1c1c15;--ink-soft:#2b2b21;
+      --olive:#6f9c3d;--olive-dark:#587c2f;
+      --lime:#a9cf3d;--lime-soft:#e4efc9;
+      --forest:#3f5c34;
+      --sage-bg:#eef3df;
+      --danger:#ef4444;--warning:#f59e0b;
+      --bg:#f5f4ec;--card:#fff;
+      --text:#23261c;--muted:#75756a;--border:#e6e4d7;
+      --radius:16px;
+      --primary:var(--ink);--secondary:var(--olive);--accent:var(--forest);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+    header{background:var(--ink);color:#fff;padding:18px 32px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    header h1{font-size:1.35rem;font-weight:800;letter-spacing:-.5px}
+    header p{font-size:.8rem;opacity:.6;margin-top:2px}
+    .header-right{margin-left:auto;text-align:right;font-size:.78rem;opacity:.55}
+    .step{display:none}.step.active{display:block}
+    .upload-wrap{max-width:820px;margin:40px auto;padding:0 24px}
+    .upload-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;box-shadow:0 1px 3px rgba(28,28,21,.05);margin-bottom:16px}
+    .upload-card h2{font-size:1rem;font-weight:700;margin-bottom:5px;color:var(--ink);display:flex;align-items:center;gap:8px}
+    .upload-card p.hint{font-size:.8rem;color:var(--muted);margin-bottom:18px}
+    .badge-req{background:#fbe6e2;color:#b3401f;font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+    .badge-opt{background:var(--sage-bg);color:var(--olive-dark);font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+    .locality-picker{display:flex;gap:10px;flex-wrap:wrap}
+    .locality-btn{padding:12px 22px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:.9rem;font-weight:600;color:var(--text);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+    .locality-btn:hover{border-color:var(--olive)}
+    .locality-btn.active{border-color:var(--olive);background:var(--sage-bg);color:var(--olive-dark)}
+    .drop-zone{border:2px dashed var(--border);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;transition:all .18s;position:relative}
+    .drop-zone:hover,.drop-zone.over{border-color:var(--olive);background:var(--sage-bg)}
+    .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .drop-zone .icon{font-size:1.8rem;margin-bottom:8px}
+    .drop-zone .label{font-size:.87rem;color:var(--muted)}
+    .drop-zone .label b{color:var(--olive-dark)}
+    .drop-zone.loaded{border-color:var(--olive);background:var(--sage-bg)}
+    .drop-zone.loaded .label{color:var(--olive-dark);font-weight:600}
+    .col-hint{margin-top:12px;padding:10px 14px;background:#f7f6ef;border-radius:8px;font-size:.77rem;color:var(--muted);line-height:1.65}
+    .col-hint b{color:var(--text)}
+    /* Sales manual input */
+    .sales-input-wrap{margin-top:4px;display:flex;align-items:center;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s}
+    .sales-input-wrap:focus-within{border-color:var(--olive)}
+    .sales-input-prefix{padding:10px 14px;background:#f7f6ef;font-size:.87rem;color:var(--muted);border-right:1.5px solid var(--border);white-space:nowrap}
+    .sales-input-wrap input{padding:10px 14px;border:none;font-size:1rem;font-weight:600;color:var(--ink);flex:1;min-width:0;outline:none;background:#fff;font-family:'Inter',sans-serif}
+    .sales-input-wrap input::placeholder{font-weight:400;color:#c9c7ba}
+    .sales-preview{margin-top:8px;font-size:.82rem;color:var(--olive-dark);font-weight:600;min-height:20px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 26px;border-radius:10px;border:none;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+    .btn-primary{background:var(--ink);color:#fff}
+    .btn-primary:hover{background:var(--ink-soft)}
+    .btn-primary:disabled{background:#c9c7ba;cursor:not-allowed}
+    /* Mapping */
+    .mapping-wrap{max-width:820px;margin:36px auto;padding:0 24px}
+    .mapping-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px 30px;box-shadow:0 1px 3px rgba(28,28,21,.05);margin-bottom:16px}
+    .mapping-card h2{font-size:1rem;font-weight:700;margin-bottom:3px;color:var(--ink)}
+    .mapping-card .hint{font-size:.8rem;color:var(--muted);margin-bottom:20px}
+    .mapping-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .field-row{display:flex;flex-direction:column;gap:4px}
+    .field-row label{font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+    .field-row label .req{color:var(--danger)}
+    .field-row select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.87rem;background:#fff;color:var(--text);width:100%;font-family:'Inter',sans-serif}
+    .field-row select:focus{outline:2px solid var(--olive);border-color:transparent}
+    .period-row{display:flex;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;background:#f7f6ef;border-radius:10px;flex-wrap:wrap}
+    .period-row label{font-size:.83rem;font-weight:600;color:var(--text);white-space:nowrap}
+    .period-row select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.87rem;background:#fff}
+    .mapping-actions{display:flex;justify-content:flex-end;margin-top:20px}
+    /* Dashboard */
+    #dashboard{padding:26px 30px}
+    .dash-header{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+    .dash-header h2{font-size:1.2rem;font-weight:800;color:var(--ink)}
+    .dash-meta{font-size:.78rem;color:var(--muted)}
+    .back-btn{font-size:.8rem;color:var(--olive-dark);cursor:pointer;text-decoration:underline;margin-left:auto;font-weight:600}
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+    .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:0 1px 3px rgba(28,28,21,.05);border-left:4px solid var(--border)}
+    .kpi-card.dso{border-left-color:var(--olive)}.kpi-card.ar{border-left-color:var(--forest)}
+    .kpi-card.vencido{border-left-color:var(--danger)}.kpi-card.churn{border-left-color:var(--warning)}
+    .kpi-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px}
+    .kpi-value{font-size:1.9rem;font-weight:800;line-height:1}
+    .kpi-card.dso .kpi-value{color:var(--olive-dark)}.kpi-card.ar .kpi-value{color:var(--forest)}
+    .kpi-card.vencido .kpi-value{color:var(--danger)}.kpi-card.churn .kpi-value{color:var(--warning)}
+    .kpi-sub{font-size:.75rem;color:var(--muted);margin-top:4px}
+    .section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;box-shadow:0 1px 3px rgba(28,28,21,.05);margin-bottom:18px}
+    .section-title{font-size:.93rem;font-weight:700;color:var(--ink);margin-bottom:3px}
+    .section-sub{font-size:.77rem;color:var(--muted);margin-bottom:18px}
+    .chart-2col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+    .chart-box h3{font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em}
+    .chart-h{height:220px;display:flex;align-items:center;justify-content:center}
+    .chart-h canvas{max-height:220px}
+    .port-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+    .port-col h3{font-size:.93rem;font-weight:700;color:var(--ink);margin-bottom:14px}
+    .mini-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+    .mini-kpi{background:#f7f6ef;border-radius:10px;padding:10px 12px}
+    .mini-kpi-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+    .mini-kpi-value{font-size:1.2rem;font-weight:700;color:var(--ink);margin-top:2px}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:.83rem}
+    th{text-align:left;padding:9px 13px;background:#f7f6ef;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border)}
+    td{padding:9px 13px;border-bottom:1px solid #f1f0e8}
+    tr:hover td{background:#f7f6ef}
+    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700}
+    .badge-red{background:#fbe6e2;color:#b3401f}.badge-green{background:var(--sage-bg);color:var(--olive-dark)}
+    .badge-yellow{background:#fdefd0;color:#a3690b}.badge-blue{background:var(--sage-bg);color:var(--forest)}
+    .badge-purple{background:#fdefd0;color:#96631f}
+    .empty{text-align:center;padding:28px;color:var(--muted);font-size:.87rem}
+    .calc-box{background:var(--ink);border:none;border-radius:var(--radius);padding:18px 22px;margin-bottom:18px;font-size:.83rem;color:#fff}
+    .calc-box b{font-weight:700}
+    .calc-row{display:flex;gap:24px;flex-wrap:wrap;margin-top:8px}
+    .calc-item{display:flex;flex-direction:column;gap:2px}
+    .calc-item span{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
+    .calc-item strong{font-size:1.1rem;font-weight:700;color:var(--lime)}
+    .calc-formula{margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.08);border-radius:8px;font-family:'Inter',monospace;font-size:.85rem;color:var(--lime)}
+    @media(max-width:768px){.kpi-row{grid-template-columns:1fr 1fr}.chart-2col,.port-grid,.mapping-grid{grid-template-columns:1fr}#dashboard{padding:14px}}
+    /* Export panel */
+    .btn-sm{padding:7px 14px;font-size:.78rem;border-radius:8px}
+    .btn-outline{background:#fff;color:var(--ink);border:1.5px solid var(--border)}
+    .btn-outline:hover{border-color:var(--olive);color:var(--olive-dark)}
+    .export-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:18px}
+    .export-panel-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+    .export-panel-head .section-title{margin-bottom:0}
+    .export-actions{display:flex;gap:8px}
+    .chart-select-grid{display:flex;flex-wrap:wrap;gap:10px}
+    .chk-pill{display:flex;align-items:center;gap:7px;background:#f7f6ef;border:1px solid var(--border);border-radius:20px;padding:6px 14px 6px 10px;font-size:.8rem;color:var(--text);cursor:pointer;user-select:none}
+    .chk-pill input{accent-color:var(--olive);width:15px;height:15px;cursor:pointer}
+    .chk-pill:has(input:checked){border-color:var(--olive);background:var(--sage-bg)}
+    /* Data table toolbar */
+    .dt-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .dt-search{padding:9px 14px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;font-family:'Inter',sans-serif;min-width:200px;flex:1}
+    .dt-search:focus{outline:none;border-color:var(--olive)}
+    .dt-filter{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;background:#fff;font-family:'Inter',sans-serif}
+    .dt-toolbar-right{display:flex;gap:8px;margin-left:auto}
+    .dt-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px}
+    .dt-info{font-size:.78rem;color:var(--muted)}
+    .dt-pager{display:flex;align-items:center;gap:8px}
+    .dt-pager select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:'Inter',sans-serif}
+    .dt-pager button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:.9rem;color:var(--text)}
+    .dt-pager button:hover:not(:disabled){border-color:var(--olive);color:var(--olive-dark)}
+    .dt-pager button:disabled{opacity:.4;cursor:not-allowed}
+    .dt-pager span{font-size:.78rem;color:var(--muted);white-space:nowrap}
+    input.row-chk,input.dt-select-all{accent-color:var(--olive);width:15px;height:15px;cursor:pointer}
+    .slack-webhook-row{display:flex;gap:10px;flex-wrap:wrap}
+    .slack-webhook-row input{flex:1;min-width:240px;padding:9px 14px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;font-family:'Inter',sans-serif;color:var(--text)}
+    .slack-webhook-row input:focus{outline:none;border-color:var(--olive)}
+    /* Login */
+    .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+    .login-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:36px 34px;max-width:380px;width:100%;box-shadow:0 10px 30px rgba(28,28,21,.12)}
+    .login-brand{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .login-brand h1{font-size:1.15rem;font-weight:800;color:var(--ink)}
+    .login-sub{font-size:.83rem;color:var(--muted);margin-bottom:22px}
+    .login-field{margin-bottom:14px}
+    .login-field label{font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:block}
+    .login-field input{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:.9rem;font-family:'Inter',sans-serif;color:var(--text)}
+    .login-field input:focus{outline:none;border-color:var(--olive)}
+    .login-error{font-size:.8rem;color:var(--danger);min-height:16px;margin-top:2px}
+    .login-btn{width:100%;justify-content:center;margin-top:6px}
+    /* Home: lista de análisis guardados */
+    .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:.88rem;transition:all .15s}
+    .home-card-view:hover{border-color:var(--olive);background:var(--sage-bg)}
+    .home-card-pdf:hover{border-color:#4a7ba6;background:#eef4fa}
+    .home-card-delete:hover{border-color:var(--danger);background:#fef2f2}
+    .table-actions{display:flex;gap:6px}
+    .home-empty{text-align:center;padding:70px 20px;color:var(--muted)}
+    .home-empty-icon{font-size:2.6rem;margin-bottom:12px}
+    .home-empty-title{font-size:1.08rem;font-weight:700;color:var(--ink);margin-bottom:7px}
+    .home-empty-sub{font-size:.85rem;max-width:420px;margin:0 auto 22px;line-height:1.6}
+    /* App layout: sidebar + always-visible sections (scroll to section on click) */
+    .app-layout{display:flex;min-height:100vh}
+    .sidebar{width:250px;flex-shrink:0;background:var(--ink);color:#fff;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh;overflow-y:auto}
+    .sidebar-brand{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:0 6px;cursor:pointer;transition:opacity .15s}
+    .sidebar-brand:hover{opacity:.8}
+    .sidebar-brand h1{font-size:1.02rem;font-weight:800;letter-spacing:-.3px;line-height:1.2}
+    .sidebar-cta{width:100%;justify-content:center;margin-bottom:8px;background:#a9cf3d;color:var(--ink)}
+    .sidebar-cta:hover{background:#9bc02f}
+    .sidebar-permanent-link{margin-bottom:16px}
+    .sidebar-divider{height:1px;background:rgba(255,255,255,.08);margin:14px 0}
+    .sidebar-nav{display:flex;flex-direction:column;gap:3px;flex:1}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:.85rem;color:#cfcdc0;cursor:pointer;transition:all .15s;background:none;border:none;text-align:left;width:100%;font-family:'Inter',sans-serif}
+    .nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+    .nav-item.active{background:#a9cf3d;color:var(--ink);font-weight:600}
+    .nav-item .nav-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+    .sidebar-footer-block{margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+    .sidebar-user-badge{padding:0 10px;font-size:.76rem;color:#d8d6c8;font-weight:600;margin-bottom:6px}
+    .sidebar-foot{padding:0 10px;font-size:.7rem;color:#8a8a7c;margin-bottom:8px}
+    .sidebar-logout{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:.83rem;color:#cfcdc0;cursor:pointer;background:none;border:none;width:100%;text-align:left;font-family:'Inter',sans-serif;transition:all .15s}
+    .sidebar-logout:hover{background:rgba(239,68,68,.12);color:#f87171}
+    .main-content{flex:1;min-width:0;padding:30px 34px}
+    .page-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+    .page-head h2{font-size:1.35rem;font-weight:800;color:var(--ink)}
+    .screen{display:none}
+    .screen.active{display:block}
+    .page-section{margin-bottom:6px;scroll-margin-top:20px}
+    @media(max-width:900px){
+      .app-layout{flex-direction:column}
+      .sidebar{width:100%;height:auto;position:relative;padding:14px}
+      .sidebar-nav{flex-direction:row;overflow-x:auto;flex-wrap:nowrap}
+      .nav-item{white-space:nowrap}
+      .main-content{padding:16px}
+    }
+  </style>
+</head>
+<body>
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE8AAABcCAYAAAAvduizAAAHkklEQVR42u2cfUxb5R7Hv20ZlvHSUsYKo7hAcZkD5wQ2TEZBHTGI+IYxYZkv07li3Jbcyx+ae3O9iUZj1GQzokbY/jDTORejouKcZoStw8yNyph0DAe0MFpKeetpeekB2p77B7c6HRvt6el5Kef7X8/L85zzyXN+z+/36/N7JBRFQRQ9SUUEIjwRnghPhCdKhCfCE+GJ8ESJ8BhTTLS+GDlLKuyjtrcDv7M02hqm+5BEU2xrsfbVt15o0bd1/4w+x6XrzmvVudi8fivK7q7Ym5665gMR3v+hfXHyiP60qSnoe0rzKqGv2leiTEo+s2zhnWhtouoaX6N9/67yWlToHlXKb5G7lhW8T747RH1+uiHsdlQJauyurEVJ4b2SZQEv3BG3mPKzi/Hcw3sagp1cBAnPYu2r3/vudn2k2q/csh3by3cuaQ8FCe+VD2updnNrRPtQJajx9p76m87KgnOSDcaWiIMDgIkpBxpbjr0fNREGOUsqDjbtZ62/pvNHoyc8O36mkZiYcrDWX352cfTA+7r1CKv9PffwngYxMUBDpXmVS8bDgoL3WPEO1vrSV+0rWeoaQcGrKquW7CqvjXg/u8prEUzMK7jPtqqsWnLo5ca9pXmVEWlfq85Fhe5RZdTHtkbTOerwDx8tmn6KlGMcNfACvt+ptpNEuHFuqOB4BW/eRyrGp3uaXZ6BgsCxlbGpWBW/riQudmn7Q7iduqMnPjYs5djeaGalk9vjHN68j1R0Dh0hBolvMedb3AFWxW3FJs2LDSnxS2c7QkmM5mcXo/r+Z3/NzbmjkM6zcwrvd0cT1T1y8IbQ/q60xAoUZu4LeiT+dqXDMEY40Gu98sfx9JQ1WJuuxcZ1m8LKInMGb9jdabxgPVAwNddF6/71q/+J9epHlCtkoWd/mRSr8DxzTp1xsM4wPHk87LZiZWrckf4PZK8KLfsrOHjzPlLR7fiG6B45wHjbodhDwcEzj7VQnfZ3g7ZrdJWprMada54Jyh7yHt6gy1z3efdbe7PixkH5rayNho3p/0H2qjJW7CHj8NyzTt3x3s8M50YaAQByqR+FShn8lJs1gLEyNfI1/0ZmcpFEEPBmvaTivK2F+Mp8faY3UebHJmUMfH52J8e0xApsSNsRMXvICDyTo23q2JX98VPesRteszYuDhnyEU5mRW3KbtyurmLcHoYFzz3r1B3ufMfQN9kW1PVcAoyEa0Mb3ui0Xf9ee239zUbboiGRMhlyyVXOHFttym7kZ+6ScAZv1ksqXj/7LBEquIC2JKsQgwHOABZo3mRkBNJKhp7oO0YbHAC0E+OQSDWcwfvV+i945pw61uG5Z526U0OfhtWpl5Lg3AQBqSSJM4CXHV8ZWId3cfgXAxMP76UkuOjyQSZVcAJvkPgWrMPrIS4y9gKTPiks03GcwJvzOTA+3VfPKrxRD7MzpZWcho1cDSEqZHjDnh7GH2LA4wFJ3Rr98CKldsKJedwmwqOrC4SdUxdG0PACLkyMLEOERxfgBSfBmQsjaHgBF6Z3Kl6ER1f22UneuzC8Xugz4PFgxp8twqOrDtcoxiayRHghTRykH1T/KrjOJqDpeB9MHem8e0ZelYz6vRR8E3GQjapg7r8MYPKPc0aTDamqdVDf2iuOvGtFEl7EWDLhMEhhaXOgt//yotf9YLgCuzVJHHle0o8YIgUuyzwcEzYApqDuO9cWg/sSgSTFMoQ3PyLHLUQqzD2mv3yWwYqYHkNzswLbtk1yDpAVeHNTPqx0rsVgjw2THgeA8JZeuGZc6GzPxpbifqxYEYXw/F4K0jEVZmyAdbgfwCVG2++xmeE7k4GS++zRA2961AvFVBa6ukwAIrvEwjxkg6ojA3mb7MKF5yX9kA2vhttOwjFhgy1I48+EjCYb5LFrkbNhUDjwAj4ZHImwXO2lZfyZUmv7AOKTlEjXuFntN2Q/7+8+2QI47vXjKQJuZzK/4bk7VqKry4RJD8G7cKm5xQu3i8fw7swq4m0SwTXjwsnmBMzP8xRejmYdr7Mw7hk3zp5JDwpgkjzjJVbh3bV+cwN4LvOQDZc6bv5HUlpiBcJdehsyvCyNtmap8nE+qOP3qzdNY21I29HA+mcLLF0+zhcZTTYMWBKvO56prAYTS21pwcvSaGte3VknBH5o+dn1lzSWKm4rCjJfUHIyYQRUmFckeXVnHVQJat4D/OU8Bbdrwc6V5LzBWJlBWMnQwrwiSV3t4ZJIVV0zJZlUjtuSXoFO+18Jk/UZjJUSWKx99QeOvq5nquqaKYWzxRtr8AIyGFuog037webmMYuJic0FWYcHLJSuf/HTpwQTe9uFKq06FzWP1dIuQOYcXkD20aE9n3x/6P1QtqOkK1WCGjvKalBeXMlaCSkrJaOXejuN9V/vL4iUPawu1eOJ+5+MiF3jHF5AJ1qbqCMn6xmzh6V5lXjqwecZ2XmW9/CAhdr/705/aQjHHmrVuXj6gRdQmFfEWZU3J/CudW1C3Z43YNfu2VzG+ifKK3h/xp/B7cpTXarHQ6WPR9T1EBy8ayFetnTCPj4E66gFmtSFlVEbc/Jx98atvILGO3hClLj5oAhPhCfCW076H/7uaE6j1vsHAAAAAElFTkSuQmCC" alt="DSO Dashboard" width="30" height="35" style="object-fit:contain;flex-shrink:0"/>
+      <h1>DSO <span style="color:#a9cf3d">Dashboard</span></h1>
+    </div>
+    <p class="login-sub">Ingresa tus credenciales para continuar</p>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="login-field">
+        <label>Correo</label>
+        <input type="email" id="loginEmail" placeholder="tu@empresa.com" autocomplete="username" required/>
+      </div>
+      <div class="login-field">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button type="submit" class="btn btn-primary login-btn">Ingresar</button>
+    </form>
+  </div>
+</div>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-brand" onclick="goHome()" title="Ir a Inicio">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE8AAABcCAYAAAAvduizAAAHkklEQVR42u2cfUxb5R7Hv20ZlvHSUsYKo7hAcZkD5wQ2TEZBHTGI+IYxYZkv07li3Jbcyx+ae3O9iUZj1GQzokbY/jDTORejouKcZoStw8yNyph0DAe0MFpKeetpeekB2p77B7c6HRvt6el5Kef7X8/L85zzyXN+z+/36/N7JBRFQRQ9SUUEIjwRnghPhCdKhCfCE+GJ8ESJ8BhTTLS+GDlLKuyjtrcDv7M02hqm+5BEU2xrsfbVt15o0bd1/4w+x6XrzmvVudi8fivK7q7Ym5665gMR3v+hfXHyiP60qSnoe0rzKqGv2leiTEo+s2zhnWhtouoaX6N9/67yWlToHlXKb5G7lhW8T747RH1+uiHsdlQJauyurEVJ4b2SZQEv3BG3mPKzi/Hcw3sagp1cBAnPYu2r3/vudn2k2q/csh3by3cuaQ8FCe+VD2updnNrRPtQJajx9p76m87KgnOSDcaWiIMDgIkpBxpbjr0fNREGOUsqDjbtZ62/pvNHoyc8O36mkZiYcrDWX352cfTA+7r1CKv9PffwngYxMUBDpXmVS8bDgoL3WPEO1vrSV+0rWeoaQcGrKquW7CqvjXg/u8prEUzMK7jPtqqsWnLo5ca9pXmVEWlfq85Fhe5RZdTHtkbTOerwDx8tmn6KlGMcNfACvt+ptpNEuHFuqOB4BW/eRyrGp3uaXZ6BgsCxlbGpWBW/riQudmn7Q7iduqMnPjYs5djeaGalk9vjHN68j1R0Dh0hBolvMedb3AFWxW3FJs2LDSnxS2c7QkmM5mcXo/r+Z3/NzbmjkM6zcwrvd0cT1T1y8IbQ/q60xAoUZu4LeiT+dqXDMEY40Gu98sfx9JQ1WJuuxcZ1m8LKInMGb9jdabxgPVAwNddF6/71q/+J9epHlCtkoWd/mRSr8DxzTp1xsM4wPHk87LZiZWrckf4PZK8KLfsrOHjzPlLR7fiG6B45wHjbodhDwcEzj7VQnfZ3g7ZrdJWprMada54Jyh7yHt6gy1z3efdbe7PixkH5rayNho3p/0H2qjJW7CHj8NyzTt3x3s8M50YaAQByqR+FShn8lJs1gLEyNfI1/0ZmcpFEEPBmvaTivK2F+Mp8faY3UebHJmUMfH52J8e0xApsSNsRMXvICDyTo23q2JX98VPesRteszYuDhnyEU5mRW3KbtyurmLcHoYFzz3r1B3ufMfQN9kW1PVcAoyEa0Mb3ui0Xf9ee239zUbboiGRMhlyyVXOHFttym7kZ+6ScAZv1ksqXj/7LBEquIC2JKsQgwHOABZo3mRkBNJKhp7oO0YbHAC0E+OQSDWcwfvV+i945pw61uG5Z526U0OfhtWpl5Lg3AQBqSSJM4CXHV8ZWId3cfgXAxMP76UkuOjyQSZVcAJvkPgWrMPrIS4y9gKTPiks03GcwJvzOTA+3VfPKrxRD7MzpZWcho1cDSEqZHjDnh7GH2LA4wFJ3Rr98CKldsKJedwmwqOrC4SdUxdG0PACLkyMLEOERxfgBSfBmQsjaHgBF6Z3Kl6ER1f22UneuzC8Xugz4PFgxp8twqOrDtcoxiayRHghTRykH1T/KrjOJqDpeB9MHem8e0ZelYz6vRR8E3GQjapg7r8MYPKPc0aTDamqdVDf2iuOvGtFEl7EWDLhMEhhaXOgt//yotf9YLgCuzVJHHle0o8YIgUuyzwcEzYApqDuO9cWg/sSgSTFMoQ3PyLHLUQqzD2mv3yWwYqYHkNzswLbtk1yDpAVeHNTPqx0rsVgjw2THgeA8JZeuGZc6GzPxpbifqxYEYXw/F4K0jEVZmyAdbgfwCVG2++xmeE7k4GS++zRA2961AvFVBa6ukwAIrvEwjxkg6ojA3mb7MKF5yX9kA2vhttOwjFhgy1I48+EjCYb5LFrkbNhUDjwAj4ZHImwXO2lZfyZUmv7AOKTlEjXuFntN2Q/7+8+2QI47vXjKQJuZzK/4bk7VqKry4RJD8G7cKm5xQu3i8fw7swq4m0SwTXjwsnmBMzP8xRejmYdr7Mw7hk3zp5JDwpgkjzjJVbh3bV+cwN4LvOQDZc6bv5HUlpiBcJdehsyvCyNtmap8nE+qOP3qzdNY21I29HA+mcLLF0+zhcZTTYMWBKvO56prAYTS21pwcvSaGte3VknBH5o+dn1lzSWKm4rCjJfUHIyYQRUmFckeXVnHVQJat4D/OU8Bbdrwc6V5LzBWJlBWMnQwrwiSV3t4ZJIVV0zJZlUjtuSXoFO+18Jk/UZjJUSWKx99QeOvq5nquqaKYWzxRtr8AIyGFuog037webmMYuJic0FWYcHLJSuf/HTpwQTe9uFKq06FzWP1dIuQOYcXkD20aE9n3x/6P1QtqOkK1WCGjvKalBeXMlaCSkrJaOXejuN9V/vL4iUPawu1eOJ+5+MiF3jHF5AJ1qbqCMn6xmzh6V5lXjqwecZ2XmW9/CAhdr/705/aQjHHmrVuXj6gRdQmFfEWZU3J/CudW1C3Z43YNfu2VzG+ifKK3h/xp/B7cpTXarHQ6WPR9T1EBy8ayFetnTCPj4E66gFmtSFlVEbc/Jx98atvILGO3hClLj5oAhPhCfCW076H/7uaE6j1vsHAAAAAElFTkSuQmCC" alt="DSO Dashboard" width="30" height="35" style="object-fit:contain;flex-shrink:0"/>
+      <div><h1>DSO <span style="color:#a9cf3d">Dashboard</span></h1></div>
+    </div>
+
+    <button class="btn btn-primary sidebar-cta perm-upload" onclick="startNewAnalysis()">+ Nuevo Análisis</button>
+    <button class="nav-item sidebar-permanent-link" onclick="goHome()"><span class="nav-icon">📋</span><span>Mis Análisis</span></button>
+
+    <div class="sidebar-divider"></div>
+
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer-block">
+      <div class="sidebar-user-badge" id="userRoleBadge"></div>
+      <div class="sidebar-foot" id="headerDate"></div>
+      <button class="sidebar-logout" onclick="handleLogout()"><span class="nav-icon">🚪</span><span>Cerrar sesión</span></button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- SCREEN: HOME (lista de análisis guardados) -->
+    <div class="screen active" id="screen-home">
+      <div class="page-head">
+        <h2>Mis Análisis</h2>
+        <button class="btn btn-primary perm-upload" onclick="startNewAnalysis()">+ Nuevo Análisis</button>
+      </div>
+      <div class="home-empty" id="homeEmptyState" style="display:none">
+        <div class="home-empty-icon">📊</div>
+        <div class="home-empty-title">Aún no tienes análisis guardados</div>
+        <div class="home-empty-sub">Carga tu primer archivo de AR Aging para generar tu primer dashboard de DSO. Cada vez que guardes uno con "💾 Guardar DSO", quedará listado aquí.</div>
+        <button class="btn btn-primary perm-upload" onclick="startNewAnalysis()">+ Comenzar</button>
+      </div>
+
+      <div class="section" id="misAnalisisSection" style="display:none">
+        <div class="dt-toolbar">
+          <input type="text" class="dt-search" id="misAnalisisSearch" placeholder="Buscar por mes, año o localidad...">
+          <select class="dt-filter" id="misAnalisisFilterLocalidad" data-table="misAnalisis" data-filter="locality">
+            <option value="">Localidad: Todas</option>
+            <option value="chile">🇨🇱 Chile</option>
+            <option value="peru">🇵🇪 Perú</option>
+            <option value="mexico">🇲🇽 México</option>
+          </select>
+          <select class="dt-filter" id="misAnalisisFilterPeriodo" data-table="misAnalisis" data-filter="periodo">
+            <option value="">Período: Todos</option>
+          </select>
+          <div class="dt-toolbar-right">
+            <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('misAnalisis','pdf')">📄 PDF</button>
+            <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('misAnalisis','xlsx')">📊 XLSX</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th><input type="checkbox" class="dt-select-all" id="misAnalisisSelectAll"></th>
+              <th>Localidad</th><th>Período</th><th>DSO</th><th>AR Total</th><th>% Vencido</th><th>Churn</th><th>Facturas</th><th>Generado</th><th>Acciones</th>
+            </tr></thead>
+            <tbody id="misAnalisisBody"></tbody>
+          </table>
+          <div class="empty" id="misAnalisisEmpty" style="display:none">No hay análisis que coincidan con tu búsqueda.</div>
+        </div>
+        <div class="dt-footer">
+          <span class="dt-info" id="misAnalisisInfo"></span>
+          <div class="dt-pager">
+            <select id="misAnalisisPageSize"><option value="10" selected>10 / pág</option><option value="25">25 / pág</option><option value="50">50 / pág</option></select>
+            <button id="misAnalisisPrev">‹</button>
+            <span id="misAnalisisPageIndicator"></span>
+            <button id="misAnalisisNext">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN: UPLOAD -->
+    <div class="screen" id="screen-upload">
+      <div class="page-head"><h2>Carga de Datos</h2></div>
+      <div class="upload-wrap" style="margin:0">
+
+        <div class="upload-card">
+          <h2>🌎 Localidad <span class="badge-req">Requerido</span></h2>
+          <p class="hint">Cada localidad se analiza y se guarda de forma independiente. Solo puede existir un análisis por período (mes) y por localidad — guardar uno nuevo reemplaza al anterior del mismo mes.</p>
+          <div class="locality-picker" id="localityPicker">
+            <button type="button" class="locality-btn active" data-locality="chile" onclick="selectLocality('chile')">🇨🇱 Chile</button>
+            <button type="button" class="locality-btn" data-locality="peru" onclick="selectLocality('peru')">🇵🇪 Perú</button>
+            <button type="button" class="locality-btn" data-locality="mexico" onclick="selectLocality('mexico')">🇲🇽 México</button>
+          </div>
+        </div>
+
+        <div class="upload-card" id="arCardSingle">
+          <h2>📊 AR Aging — NetSuite <span class="badge-req">Requerido</span></h2>
+          <p class="hint">Exporta el reporte de facturas abiertas desde NetSuite. Formatos aceptados: CSV, XLSX o XLS. Columnas necesarias: nombre cliente, fecha factura, fecha vencimiento, monto original, saldo pendiente y moneda.</p>
+          <div class="drop-zone" id="dropAR">
+            <input type="file" accept=".csv,.txt,.xlsx,.xls" id="fileAR"/>
+            <div class="icon">📂</div>
+            <div class="label" id="labelAR">Arrastra tu archivo aquí o <b>haz clic para seleccionar</b> (CSV, XLSX, XLS)</div>
+          </div>
+        </div>
+
+        <div class="upload-card" id="arCardDual" style="display:none">
+          <h2>📊 AR Aging — NetSuite <span class="badge-req">Requerido</span></h2>
+          <p class="hint">Esta localidad vende en moneda local y en USD por separado. Sube <b>dos archivos</b>, uno con solo las facturas en moneda local y otro con solo las facturas en USD — así el DSO y la concentración por cartera se calculan con precisión por cada moneda, sin aproximaciones. Formatos aceptados: CSV, XLSX o XLS. Ambos archivos deben tener las mismas columnas.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div class="col-hint" style="margin:0 0 8px;font-weight:600" id="arDualLocalLabel">Moneda Local</div>
+              <div class="drop-zone" id="dropARLocal">
+                <input type="file" accept=".csv,.txt,.xlsx,.xls" id="fileARLocal"/>
+                <div class="icon">📂</div>
+                <div class="label" id="labelARLocal">Arrastra tu archivo aquí o <b>haz clic para seleccionar</b></div>
+              </div>
+            </div>
+            <div>
+              <div class="col-hint" style="margin:0 0 8px;font-weight:600">USD</div>
+              <div class="drop-zone" id="dropARUSD">
+                <input type="file" accept=".csv,.txt,.xlsx,.xls" id="fileARUSD"/>
+                <div class="icon">📂</div>
+                <div class="label" id="labelARUSD">Arrastra tu archivo aquí o <b>haz clic para seleccionar</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-card">
+          <h2>💰 Ventas del mes <span class="badge-req">Requerido</span></h2>
+          <p class="hint" id="salesCardHint">Ingresa el monto total de ventas netas del mes de cálculo (tal como aparece en tu libro de ventas). Acepta cualquier formato: con puntos, comas o sin separadores.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
+            <div>
+              <div class="field-row" style="margin-bottom:12px">
+                <label>Mes de cálculo</label>
+                <div style="display:flex;gap:8px">
+                  <select id="dsoMonth" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.87rem;flex:1">
+                    <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                    <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
+                    <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                  </select>
+                  <select id="dsoYear" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.87rem;width:90px"></select>
+                </div>
+              </div>
+
+              <div id="salesSingleBlock">
+                <div class="field-row">
+                  <label id="salesLabel">Monto total de ventas netas</label>
+                  <div class="sales-input-wrap">
+                    <span class="sales-input-prefix" id="salesPrefix">$</span>
+                    <input type="text" id="salesInput" placeholder="1.018.262.571" inputmode="numeric"/>
+                  </div>
+                  <div class="sales-preview" id="salesPreview"></div>
+                </div>
+              </div>
+
+              <div id="salesDualBlock" style="display:none">
+                <div class="field-row" style="margin-bottom:12px">
+                  <label id="salesLabelLocal">Ventas netas — Moneda Local</label>
+                  <div class="sales-input-wrap">
+                    <span class="sales-input-prefix" id="salesPrefixLocal">S/</span>
+                    <input type="text" id="salesInputLocal" placeholder="0" inputmode="numeric"/>
+                  </div>
+                  <div class="sales-preview" id="salesPreviewLocal"></div>
+                </div>
+                <div class="field-row">
+                  <label>Ventas netas — USD</label>
+                  <div class="sales-input-wrap">
+                    <span class="sales-input-prefix">US$</span>
+                    <input type="text" id="salesInputUSD" placeholder="0" inputmode="numeric"/>
+                  </div>
+                  <div class="sales-preview" id="salesPreviewUSD"></div>
+                </div>
+              </div>
+            </div>
+            <div style="background:#f8fafc;border-radius:10px;padding:16px;font-size:.8rem;color:var(--muted);line-height:1.8">
+              <b style="color:var(--text);display:block;margin-bottom:6px">Fórmula DSO</b>
+              <code style="display:block;background:#e2e8f0;padding:8px 10px;border-radius:6px;font-size:.85rem;color:var(--primary);margin-bottom:10px">DSO = (AR / Ventas) × días del mes</code>
+              <span id="salesFormulaHint">Ingresa el monto <b>neto</b> de ventas del mes, tal como lo calculas normalmente para el DSO. El sistema usa los días exactos del mes seleccionado.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-card" id="histCard">
+          <h2>📈 Histórico de DSO <span class="badge-opt">Opcional</span></h2>
+          <p class="hint">Archivo (CSV, XLSX o XLS) con el DSO mensual histórico. El DSO calculado hoy se añade automáticamente como el punto más reciente.</p>
+          <div class="drop-zone" id="dropHist">
+            <input type="file" accept=".csv,.txt,.xlsx,.xls" id="fileHist"/>
+            <div class="icon">📂</div>
+            <div class="label" id="labelHist">Arrastra tu archivo aquí o <b>haz clic para seleccionar</b> (CSV, XLSX, XLS)</div>
+          </div>
+          <div class="col-hint"><b>Formato:</b> dos columnas — Mes (ej: "2024-01" o "Jun-24") y DSO (días)</div>
+        </div>
+        <div class="upload-card" id="histAutoNote" style="display:none">
+          <h2>📈 Histórico de DSO <span class="badge-opt">Automático</span></h2>
+          <p class="hint" style="margin-bottom:0">Esta localidad no requiere subir un histórico. El gráfico de "Histórico DSO" se construirá automáticamente a medida que guardes un análisis cada mes con el botón <b>💾 Guardar DSO</b>.</p>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-primary" id="btnNext1" onclick="goToMapping()" disabled>Continuar → Mapear columnas AR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN: MAPPING -->
+    <div class="screen" id="screen-mapping">
+      <div class="page-head"><h2>Mapeo de Columnas</h2></div>
+      <div class="mapping-wrap" style="margin:0">
+        <div class="mapping-card" id="mappingCardSingle">
+          <h2>📊 Columnas del AR (NetSuite)</h2>
+          <p class="hint" id="mappingHint">Selecciona qué columna corresponde a cada campo. Los <span style="color:var(--danger)">*</span> son obligatorios. Los nombres comunes se detectan automáticamente.</p>
+          <div class="mapping-grid" id="mappingGridAR"></div>
+        </div>
+
+        <div class="mapping-card" id="mappingCardLocal" style="display:none">
+          <h2>📊 Columnas del archivo — <span id="mappingLocalLabel">Moneda Local</span></h2>
+          <p class="hint">Selecciona qué columna corresponde a cada campo en <b>este archivo</b>. Los <span style="color:var(--danger)">*</span> son obligatorios.</p>
+          <div class="mapping-grid" id="mappingGridLocal"></div>
+        </div>
+
+        <div class="mapping-card" id="mappingCardUSD" style="display:none">
+          <h2>📊 Columnas del archivo — USD</h2>
+          <p class="hint">Selecciona qué columna corresponde a cada campo en <b>este archivo</b>. Los <span style="color:var(--danger)">*</span> son obligatorios.</p>
+          <div class="mapping-grid" id="mappingGridUSD"></div>
+        </div>
+
+        <div class="mapping-actions">
+          <button class="btn btn-primary" onclick="generateDashboard()">Generar Dashboard →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN: DASHBOARD (todas las secciones visibles, navegación por scroll) -->
+    <div class="screen" id="screen-dashboard">
+
+      <section class="page-section" id="sec-resumen">
+        <div class="page-head"><h2>Resumen</h2><span class="dash-meta" id="asOfDate"></span><button class="btn btn-primary perm-upload" id="btnSaveDSO" onclick="saveDSO()">💾 Guardar DSO</button></div>
+        <div class="kpi-row">
+          <div class="kpi-card dso"><div class="kpi-label" id="kpiDSOLabel">DSO Total</div><div class="kpi-value" id="kpiDSO">—</div><div class="kpi-sub" id="kpiDSOSub">días</div></div>
+          <div class="kpi-card dso" id="kpiDSOUSDCard" style="display:none"><div class="kpi-label">DSO USD Internacional</div><div class="kpi-value" id="kpiDSOUSD">—</div><div class="kpi-sub">días</div></div>
+          <div class="kpi-card ar"><div class="kpi-label">Total AR</div><div class="kpi-value" id="kpiAR">—</div><div class="kpi-sub" id="kpiARSub">—</div></div>
+          <div class="kpi-card vencido"><div class="kpi-label">% Vencido</div><div class="kpi-value" id="kpiVencido">—</div><div class="kpi-sub" id="kpiVencidoSub">del saldo total</div></div>
+          <div class="kpi-card churn"><div class="kpi-label">Clientes Churn</div><div class="kpi-value" id="kpiChurn">—</div><div class="kpi-sub" id="kpiChurnSub">clientes inactivos</div></div>
+        </div>
+        <div class="calc-box">
+          <b>🔢 Detalle del cálculo DSO</b>
+          <div class="calc-row">
+            <div class="calc-item"><span>Saldo AR total</span><strong id="calcAR">—</strong></div>
+            <div class="calc-item"><span>Ventas del mes (ingresadas)</span><strong id="calcSales">—</strong></div>
+            <div class="calc-item"><span>Días del mes</span><strong id="calcDays">—</strong></div>
+          </div>
+          <div class="calc-formula" id="calcFormula">DSO = — / — × — = —</div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-impacto">
+        <div class="page-head"><h2>Impacto Inactivos</h2></div>
+        <div class="section">
+          <div class="section-title">🚫 Impacto de Clientes Inactivos en el DSO</div>
+          <div class="section-sub" id="impactoSectionSub">Comparación del DSO considerando vs. excluyendo a los clientes marcados como "inactivo" (cartera de cobro más difícil)</div>
+          <div class="mini-kpis" style="grid-template-columns:repeat(4,1fr)">
+            <div class="mini-kpi"><div class="mini-kpi-label">DSO con inactivos</div><div class="mini-kpi-value" id="kpiDSOConInactivos">—</div></div>
+            <div class="mini-kpi"><div class="mini-kpi-label">DSO sin inactivos</div><div class="mini-kpi-value" id="kpiDSOSinInactivos">—</div></div>
+            <div class="mini-kpi"><div class="mini-kpi-label">Impacto</div><div class="mini-kpi-value" id="kpiImpactoInactivos">—</div></div>
+            <div class="mini-kpi"><div class="mini-kpi-label">AR de inactivos</div><div class="mini-kpi-value" id="kpiARInactivos">—</div></div>
+          </div>
+          <div class="chart-box"><h3>DSO: Con vs. Sin Inactivos</h3><div class="chart-h"><canvas id="chartInactiveImpact"></canvas></div></div>
+          <div class="section-sub" id="impactoTexto" style="margin-top:14px;margin-bottom:0"></div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-historico">
+        <div class="page-head"><h2>Histórico DSO</h2></div>
+        <div class="section" id="sectionHistorical">
+          <div class="section-title">📈 Tendencia Histórica de DSO</div>
+          <div class="section-sub" id="historicoSectionSub">DSO mensual — el punto actual (rojo) fue calculado con los datos cargados</div>
+          <canvas id="chartHistorical" height="90"></canvas>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-total">
+        <div class="page-head"><h2>Concentración Total</h2></div>
+        <div class="section">
+          <div class="section-title">📊 Concentración de Cartera — Total</div>
+          <div class="section-sub" id="totalSectionSub">Distribución de saldo vencido vs vigente y antigüedad de facturas (días desde vencimiento)</div>
+          <div class="chart-2col">
+            <div class="chart-box"><h3>Vencidas vs Vigentes</h3><div class="chart-h"><canvas id="chartVencidoTotal"></canvas></div></div>
+            <div class="chart-box"><h3>Antigüedad de cartera vencida</h3><div class="chart-h"><canvas id="chartAgingTotal"></canvas></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-cartera">
+        <div class="page-head"><h2>Por Cartera</h2></div>
+        <div class="section">
+          <div class="section-title" id="carteraSectionTitle">🌎 Concentración por Cartera</div>
+          <div class="section-sub" id="carteraSectionSub">Nacional = CLP · Internacional = USD</div>
+          <div class="port-grid">
+            <div class="port-col">
+              <h3 id="carteraNacHeader">🇨🇱 Cartera Nacional (CLP)</h3>
+              <div class="mini-kpis">
+                <div class="mini-kpi"><div class="mini-kpi-label" id="kpiDSONacLabel">DSO Nacional</div><div class="mini-kpi-value" id="kpiDSONac">—</div></div>
+                <div class="mini-kpi"><div class="mini-kpi-label">Saldo AR</div><div class="mini-kpi-value" id="kpiARNac">—</div></div>
+                <div class="mini-kpi"><div class="mini-kpi-label">% Vencido</div><div class="mini-kpi-value" id="kpiVencNac">—</div></div>
+              </div>
+              <div class="chart-box"><h3 id="vencidoNacHeader">Vencidas vs Vigentes</h3><div class="chart-h"><canvas id="chartVencidoNac"></canvas></div></div>
+              <div class="chart-box" style="margin-top:16px"><h3 id="agingNacHeader">Antigüedad Nacional</h3><div class="chart-h"><canvas id="chartAgingNac"></canvas></div></div>
+            </div>
+            <div class="port-col">
+              <h3 id="carteraIntHeader">🌐 Cartera Internacional (USD)</h3>
+              <div class="mini-kpis">
+                <div class="mini-kpi"><div class="mini-kpi-label" id="kpiDSOIntLabel">DSO Internacional</div><div class="mini-kpi-value" id="kpiDSOInt">—</div></div>
+                <div class="mini-kpi"><div class="mini-kpi-label">Saldo AR</div><div class="mini-kpi-value" id="kpiARInt">—</div></div>
+                <div class="mini-kpi"><div class="mini-kpi-label">% Vencido</div><div class="mini-kpi-value" id="kpiVencInt">—</div></div>
+              </div>
+              <div class="chart-box"><h3 id="vencidoIntHeader">Vencidas vs Vigentes</h3><div class="chart-h"><canvas id="chartVencidoInt"></canvas></div></div>
+              <div class="chart-box" style="margin-top:16px"><h3 id="agingIntHeader">Antigüedad Internacional</h3><div class="chart-h"><canvas id="chartAgingInt"></canvas></div></div>
+            </div>
+          </div>
+          <div class="chart-box" id="dsoPorMonedaBox" style="display:none;margin-top:20px">
+            <h3>💱 DSO por Moneda: Comparación</h3>
+            <div class="chart-h"><canvas id="chartDSOPorMoneda"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-topclientes">
+        <div class="page-head"><h2>Top Clientes</h2></div>
+        <div class="section">
+          <div class="section-title">👥 Concentración por Cliente — Top 15</div>
+          <div class="section-sub" id="topClientesSectionSub">Saldo pendiente total por cliente (amarillo = churn / inactivo)</div>
+          <canvas id="chartTopClientes" height="120"></canvas>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-churn">
+        <div class="page-head"><h2>Clientes Churn</h2></div>
+        <div class="section">
+          <div class="section-title">⚠️ Clientes Churn (Inactivos)</div>
+          <div class="section-sub">Clientes con "inactivo" en el nombre — cartera en riesgo</div>
+          <div class="dt-toolbar">
+            <input type="text" class="dt-search" id="churnSearch" placeholder="Buscar cliente...">
+            <select class="dt-filter" id="churnFilterCartera" data-table="churn" data-filter="cartera">
+              <option value="">Cartera: Todas</option>
+              <option value="nacional" id="churnOptNacional">Nacional</option>
+              <option value="internacional" id="churnOptInternacional">Internacional</option>
+            </select>
+            <div class="dt-toolbar-right">
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('churn','pdf')">📄 PDF</button>
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('churn','xlsx')">📊 XLSX</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th><input type="checkbox" class="dt-select-all" id="churnSelectAll"></th><th>Cliente</th><th>Cartera</th><th>Saldo Total</th><th>Vencido</th><th>Vigente</th><th>Facturas</th><th>Estado</th></tr></thead>
+              <tbody id="churnBody"></tbody>
+            </table>
+            <div class="empty" id="churnEmpty" style="display:none">No se encontraron clientes con "inactivo" en su nombre.</div>
+          </div>
+          <div class="dt-footer">
+            <span class="dt-info" id="churnInfo"></span>
+            <div class="dt-pager">
+              <select id="churnPageSize"><option value="10">10 / pág</option><option value="25">25 / pág</option><option value="50">50 / pág</option></select>
+              <button id="churnPrev">‹</button>
+              <span id="churnPageIndicator"></span>
+              <button id="churnNext">›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-facturas">
+        <div class="page-head"><h2>Detalle de Facturas</h2></div>
+        <div class="section">
+          <div class="section-title">🧾 Detalle de Facturas</div>
+          <div class="section-sub">Todas las facturas abiertas del AR cargado</div>
+          <div class="dt-toolbar">
+            <input type="text" class="dt-search" id="invoicesSearch" placeholder="Buscar cliente...">
+            <select class="dt-filter" id="invoicesFilterCartera" data-table="invoices" data-filter="cartera">
+              <option value="">Cartera: Todas</option>
+              <option value="nacional" id="invoicesOptNacional">Nacional</option>
+              <option value="internacional" id="invoicesOptInternacional">Internacional</option>
+            </select>
+            <select class="dt-filter" id="invoicesFilterEstado" data-table="invoices" data-filter="estado">
+              <option value="">Estado: Todos</option>
+              <option value="vencido">Vencido</option>
+              <option value="vigente">Vigente</option>
+            </select>
+            <div class="dt-toolbar-right">
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('invoices','pdf')">📄 PDF</button>
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportTableData('invoices','xlsx')">📊 XLSX</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th><input type="checkbox" class="dt-select-all" id="invoicesSelectAll"></th><th>Cliente</th><th>Cartera</th><th>F. Factura</th><th>F. Vencimiento</th><th>Monto</th><th>Saldo</th><th>Estado</th><th>Días vencido</th></tr></thead>
+              <tbody id="invoicesBody"></tbody>
+            </table>
+            <div class="empty" id="invoicesEmpty" style="display:none">No hay facturas para mostrar.</div>
+          </div>
+          <div class="dt-footer">
+            <span class="dt-info" id="invoicesInfo"></span>
+            <div class="dt-pager">
+              <select id="invoicesPageSize"><option value="10">10 / pág</option><option value="25" selected>25 / pág</option><option value="50">50 / pág</option></select>
+              <button id="invoicesPrev">‹</button>
+              <span id="invoicesPageIndicator"></span>
+              <button id="invoicesNext">›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="sec-exportar">
+        <div class="page-head"><h2>Exportar</h2></div>
+        <div class="export-panel">
+          <div class="export-panel-head">
+            <div class="section-title" style="margin-bottom:0">⬇️ Exportar fuentes de gráficos</div>
+            <div class="export-actions">
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportSelectedCharts('pdf')">📄 Descargar PDF</button>
+              <button class="btn btn-sm btn-outline perm-download" onclick="exportSelectedCharts('xlsx')">📊 Descargar XLSX</button>
+            </div>
+          </div>
+          <div class="section-sub" style="margin-bottom:12px">Selecciona los gráficos cuyos datos quieres incluir en la descarga.</div>
+          <div class="chart-select-grid" id="chartSelectGrid"></div>
+        </div>
+
+        <div class="export-panel" style="margin-top:18px">
+          <div class="export-panel-head">
+            <div class="section-title" style="margin-bottom:0">💬 Enviar resumen a Slack</div>
+          </div>
+          <div class="section-sub" style="margin-bottom:12px">Publica el resumen del DSO en un canal de Slack usando un <b>Incoming Webhook</b>. La URL solo se usa desde tu navegador para esta acción — no se guarda ni se envía a ningún otro servidor.</div>
+          <div class="slack-webhook-row">
+            <input type="text" id="slackWebhookUrl" placeholder="https://hooks.slack.com/services/T000/B000/XXXXXXXXXXXX"/>
+            <button class="btn btn-sm btn-outline perm-download" onclick="sendSlackSummary()">📤 Enviar a Slack</button>
+          </div>
+          <div class="section-sub" id="slackStatus" style="margin-top:10px;margin-bottom:0"></div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+const MONTH_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+// ── SUPABASE ──────────────────────────────────────────────────────────────
+// Reemplaza a localStorage ("Mis Análisis") y a AUTH_USERS (login). Ver
+// supabase/SETUP.md para crear el proyecto y supabase/schema.sql para las
+// tablas/políticas.
+const SUPABASE_URL='https://rupmnortthcjyqlioxqz.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1cG1ub3J0dGhjanlxbGlveHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mjk3ODUsImV4cCI6MjEwMTEwNTc4NX0.A2elFCIuOR-sckNNazLkiawwrC1V4obPXpKuEfPYSZY';
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const charts={};
+let rawAR=null,arCols=[],rawHist=null;
+
+// ── LOCALIDADES ──────────────────────────────────────────────────────────
+// Cada localidad se analiza y guarda de forma independiente (1 análisis por
+// período+localidad). Chile mantiene la carga de histórico manual (ya tenía
+// datos previos); Perú y México no la requieren — su histórico se construye
+// automáticamente a partir de los análisis guardados mes a mes.
+const LOCALITIES={
+  chile:{label:'Chile',flag:'🇨🇱',currencySymbol:'$',currencyName:'pesos chilenos',showHistoricalUpload:true,dualCurrency:false},
+  peru:{label:'Perú',flag:'🇵🇪',currencySymbol:'S/',currencyName:'soles',showHistoricalUpload:false,dualCurrency:true},
+  mexico:{label:'México',flag:'🇲🇽',currencySymbol:'$',currencyName:'pesos mexicanos',showHistoricalUpload:false,dualCurrency:true}
+};
+let selectedLocality='chile';   // localidad elegida en el Paso 1 (carga de datos)
+let currentLocality='chile';    // localidad del análisis actualmente mostrado en el dashboard
+let lastGenerated=null;         // snapshot de los parámetros del último análisis generado/abierto (para "Guardar DSO")
+let rawARLocal=null,rawARUSD=null,arColsLocal=[],arColsUSD=[]; // Perú/México: dos archivos AR separados (moneda local / USD)
+
+function selectLocality(key){
+  selectedLocality=key;
+  document.querySelectorAll('.locality-btn').forEach(b=>b.classList.toggle('active',b.dataset.locality===key));
+  const loc=LOCALITIES[key];
+  document.getElementById('histCard').style.display=loc.showHistoricalUpload?'':'none';
+  document.getElementById('histAutoNote').style.display=loc.showHistoricalUpload?'none':'';
+
+  // Perú/México venden en moneda local Y en USD por separado: se piden 2 archivos
+  // AR + 2 montos de ventas, en vez de 1 solo (así el DSO por moneda no se aproxima).
+  document.getElementById('arCardSingle').style.display=loc.dualCurrency?'none':'';
+  document.getElementById('arCardDual').style.display=loc.dualCurrency?'':'none';
+  document.getElementById('salesSingleBlock').style.display=loc.dualCurrency?'none':'';
+  document.getElementById('salesDualBlock').style.display=loc.dualCurrency?'':'none';
+
+  if(loc.dualCurrency){
+    document.getElementById('arDualLocalLabel').textContent='Moneda Local ('+loc.currencyName+')';
+    document.getElementById('salesLabelLocal').textContent='Ventas netas — Moneda Local ('+loc.currencyName+')';
+    document.getElementById('salesPrefixLocal').textContent=loc.currencySymbol;
+    document.getElementById('salesCardHint').textContent='Esta localidad vende en dos monedas. Ingresa el monto neto de ventas del mes en cada una (tal como aparece en tu libro de ventas).';
+    document.getElementById('salesFormulaHint').innerHTML='El DSO se calcula <b>por moneda</b>: AR en moneda local ÷ Ventas en moneda local, y AR en USD ÷ Ventas en USD — cada uno con su propio cálculo, sin aproximaciones.';
+  }else{
+    document.getElementById('salesPrefix').textContent=loc.currencySymbol;
+    document.getElementById('salesLabel').textContent='Monto total de ventas netas ('+loc.currencyName+')';
+    document.getElementById('salesCardHint').textContent='Ingresa el monto total de ventas netas del mes de cálculo (tal como aparece en tu libro de ventas). Acepta cualquier formato: con puntos, comas o sin separadores.';
+    document.getElementById('salesFormulaHint').innerHTML='Ingresa el monto <b>neto</b> de ventas del mes, tal como lo calculas normalmente para el DSO. El sistema usa los días exactos del mes seleccionado.';
+  }
+  checkReady();
+}
+
+const today=new Date();
+today.setHours(0,0,0,0);
+document.getElementById('headerDate').textContent=today.toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ── YEAR SELECTOR ──────────────────────────────────────────────────────────
+(function(){
+  const sel=document.getElementById('dsoYear');
+  const cy=today.getFullYear();
+  for(let y=cy;y>=cy-6;y--){
+    const o=document.createElement('option');
+    o.value=y;o.textContent=y;
+    if(y===cy)o.selected=true;
+    sel.appendChild(o);
+  }
+})();
+
+// ── SALES INPUT — live preview ─────────────────────────────────────────────
+function wireSalesPreview(inputId,previewId){
+  document.getElementById(inputId).addEventListener('input',function(){
+    const v=parseMoney(this.value);
+    const prev=document.getElementById(previewId);
+    if(v>0){
+      prev.textContent='✓ '+fmtFull(v);
+      prev.style.color='var(--accent)';
+    } else {
+      prev.textContent='';
+    }
+    checkReady();
+  });
+}
+wireSalesPreview('salesInput','salesPreview');
+wireSalesPreview('salesInputLocal','salesPreviewLocal');
+wireSalesPreview('salesInputUSD','salesPreviewUSD');
+
+// ── FILE UPLOAD ────────────────────────────────────────────────────────────
+function setupDrop(dropId,fileId,labelId,cb){
+  const drop=document.getElementById(dropId);
+  const input=document.getElementById(fileId);
+  const lbl=document.getElementById(labelId);
+  function parse(file){
+    const name=file.name.toLowerCase();
+    if(name.endsWith('.xlsx')||name.endsWith('.xls')){
+      const reader=new FileReader();
+      reader.onload=(e)=>{
+        try{
+          const data=new Uint8Array(e.target.result);
+          const wb=XLSX.read(data,{type:'array',cellDates:true});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+          const fields=rows.length?Object.keys(rows[0]):[];
+          drop.classList.add('loaded');
+          lbl.textContent='✓ '+file.name+' ('+rows.length+' filas)';
+          cb({data:rows,meta:{fields}});
+        }catch(err){alert('Error leyendo el archivo Excel: '+err.message);}
+      };
+      reader.onerror=()=>alert('Error leyendo el archivo.');
+      reader.readAsArrayBuffer(file);
+    }else{
+      Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>{
+        drop.classList.add('loaded');
+        lbl.textContent='✓ '+file.name+' ('+r.data.length+' filas)';
+        cb(r);
+      },error:()=>alert('Error leyendo el archivo.')});
+    }
+  }
+  input.addEventListener('change',()=>{if(input.files[0])parse(input.files[0]);});
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0])parse(e.dataTransfer.files[0]);});
+}
+setupDrop('dropAR','fileAR','labelAR',r=>{rawAR=r.data;arCols=r.meta.fields||[];checkReady();});
+setupDrop('dropARLocal','fileARLocal','labelARLocal',r=>{rawARLocal=r.data;arColsLocal=r.meta.fields||[];checkReady();});
+setupDrop('dropARUSD','fileARUSD','labelARUSD',r=>{rawARUSD=r.data;arColsUSD=r.meta.fields||[];checkReady();});
+setupDrop('dropHist','fileHist','labelHist',r=>{rawHist=r.data;});
+
+function checkReady(){
+  const loc=LOCALITIES[selectedLocality];
+  let ready;
+  if(loc.dualCurrency){
+    const salesLocalOk=parseMoney(document.getElementById('salesInputLocal').value)>0;
+    const salesUSDOk=parseMoney(document.getElementById('salesInputUSD').value)>0;
+    ready=rawARLocal&&rawARUSD&&salesLocalOk&&salesUSDOk;
+  }else{
+    const salesOk=parseMoney(document.getElementById('salesInput').value)>0;
+    ready=rawAR&&salesOk;
+  }
+  document.getElementById('btnNext1').disabled=!ready;
+}
+
+// ── NAVIGATION (sidebar + always-visible sections, scroll to section on click) ──
+let hasHistoricalData=false;
+let currentAnalysisId=null;
+
+const NAV_SETUP=[
+  {id:'upload',icon:'📤',label:'Carga de Datos'},
+  {id:'mapping',icon:'🔗',label:'Mapeo de Columnas'}
+];
+function navDashboardItems(){
+  const items=[{id:'resumen',icon:'📊',label:'Resumen'},{id:'impacto',icon:'🚫',label:'Impacto Inactivos'}];
+  if(hasHistoricalData)items.push({id:'historico',icon:'📈',label:'Histórico DSO'});
+  items.push(
+    {id:'total',icon:'📉',label:'Concentración Total'},
+    {id:'cartera',icon:'💼',label:'Por Cartera'},
+    {id:'topclientes',icon:'👥',label:'Top Clientes'},
+    {id:'churn',icon:'⚠️',label:'Clientes Churn'},
+    {id:'facturas',icon:'🧾',label:'Detalle de Facturas'},
+    {id:'exportar',icon:'⬇️',label:'Exportar'}
+  );
+  return items;
+}
+function renderSidebarNav(stage){
+  const nav=document.getElementById('sidebarNav');
+  nav.innerHTML='';
+  const items=stage==='setup'?NAV_SETUP:(stage==='dashboard'?navDashboardItems():[]);
+  items.forEach(it=>{
+    const btn=document.createElement('button');
+    btn.className='nav-item';
+    btn.dataset.screen=it.id;
+    btn.innerHTML=`<span class="nav-icon">${it.icon}</span><span>${it.label}</span>`;
+    btn.onclick=stage==='dashboard'?(()=>scrollToSection(it.id)):(()=>showScreen(it.id));
+    nav.appendChild(btn);
+  });
+}
+// El sidebar ya no muestra el detalle de "Mis Análisis" (eso vive en su propia
+// pantalla, como tabla). refreshSidebar queda como wrapper por compatibilidad
+// con el resto del código que ya lo llama en cada cambio de pantalla/fase.
+function refreshSidebar(stage){renderSidebarNav(stage);}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById('screen-'+id);
+  if(el)el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.screen===id));
+  if(el){
+    requestAnimationFrame(()=>{
+      el.querySelectorAll('canvas').forEach(cv=>{
+        const inst=charts[cv.id];
+        if(inst)inst.resize();
+      });
+    });
+  }
+}
+function scrollToSection(id){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.screen===id));
+  const el=document.getElementById('sec-'+id);
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function goToMapping(){
+  buildMappingUI();
+  showScreen('mapping');
+}
+async function goHome(){refreshSidebar('home');showScreen('home');await refreshMisAnalisisTable();}
+function startNewAnalysis(){if(!hasPermission('canUpload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para cargar nuevos análisis.');return;}currentAnalysisId=null;refreshSidebar('setup');showScreen('upload');}
+
+// ── PERSISTENCIA: análisis guardados (Supabase — base de datos compartida) ──
+async function loadSavedAnalyses(){
+  const {data,error}=await supabase.from('analyses').select('*')
+    .order('dso_year',{ascending:false}).order('dso_month',{ascending:false});
+  if(error){console.error('No se pudieron cargar los análisis desde Supabase:',error);return [];}
+  // La fila viene en snake_case (dso_month/dso_year/short_label) — se mapea de
+  // vuelta a la forma camelCase que ya usa el resto del código.
+  return data.map(row=>({
+    id:row.id,
+    createdAt:row.created_at,
+    locality:row.locality,
+    label:row.label,
+    shortLabel:row.short_label,
+    meta:row.meta,
+    params:{...row.params,dsoMonth:row.dso_month,dsoYear:row.dso_year}
+  }));
+}
+async function saveCurrentAnalysis(invoices,totalARBal,nacARBal,intARBal,dsoTotal,dsoNac,dsoInt,manualSales,daysInMonth,dsoMonth,dsoYear,histData,locality){
+  locality=locality||'chile';
+  const loc=LOCALITIES[locality]||LOCALITIES.chile;
+  const clientSet=new Set(invoices.map(i=>i.cn));
+  const churnCount=new Set(invoices.filter(i=>i.isChurn).map(i=>i.cn)).size;
+  const vencBal=invoices.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const vencPct=totalARBal?Math.round(vencBal/totalARBal*100):0;
+
+  const row={
+    locality,dso_month:dsoMonth,dso_year:dsoYear,
+    label:loc.flag+' '+loc.label+' — '+MONTH_NAMES[dsoMonth-1]+' '+dsoYear,
+    short_label:loc.flag+' '+MONTH_NAMES[dsoMonth-1].substring(0,3)+' '+dsoYear,
+    meta:{dsoTotal,dsoNac,dsoInt,totalARBal,invoiceCount:invoices.length,clientCount:clientSet.size,vencPct,churnCount},
+    params:{
+      invoices:invoices.map(i=>({...i,invDate:i.invDate?i.invDate.toISOString():null,dueDate:i.dueDate?i.dueDate.toISOString():null})),
+      totalARBal,nacARBal,intARBal,dsoTotal,dsoNac,dsoInt,manualSales,daysInMonth,histData
+    }
+  };
+  // Solo un análisis por período (mes+año) Y por localidad — el "upsert" con
+  // onConflict aprovecha el constraint unique(locality,dso_month,dso_year) del
+  // esquema para reemplazar automáticamente el anterior de ese mismo mes/localidad.
+  const {data,error}=await supabase.from('analyses')
+    .upsert(row,{onConflict:'locality,dso_month,dso_year'})
+    .select('id').single();
+  if(error){alert('No se pudo guardar en Supabase: '+error.message);return null;}
+  return data.id;
+}
+async function buildAutoHistorical(locality,excludeMonth,excludeYear){
+  const all=await loadSavedAnalyses();
+  return all
+    .filter(a=>a.locality===locality&&!(a.params.dsoMonth===excludeMonth&&a.params.dsoYear===excludeYear))
+    .sort((a,b)=>(a.params.dsoYear-b.params.dsoYear)||(a.params.dsoMonth-b.params.dsoMonth))
+    .map(a=>({label:MONTH_NAMES[a.params.dsoMonth-1].substring(0,3)+'-'+String(a.params.dsoYear).slice(-2),dso:a.meta.dsoTotal}));
+}
+async function saveDSO(){
+  if(!hasPermission('canUpload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para guardar análisis.');return;}
+  if(!lastGenerated){alert('Primero genera un análisis desde "Carga de Datos".');return;}
+  const g=lastGenerated;
+  const btn=document.getElementById('btnSaveDSO');
+  const original=btn?btn.innerHTML:null;
+  if(btn){btn.disabled=true;btn.innerHTML='Guardando…';}
+  currentAnalysisId=await saveCurrentAnalysis(g.invoices,g.totalARBal,g.nacARBal,g.intARBal,g.dsoTotal,g.dsoNac,g.dsoInt,g.manualSales,g.daysInMonth,g.dsoMonth,g.dsoYear,g.histData,g.locality);
+  refreshSidebar('dashboard');
+  if(!btn)return;
+  btn.innerHTML='✅ Guardado';
+  setTimeout(()=>{btn.innerHTML=original;btn.disabled=false;},1800);
+}
+const LOCALITY_ORDER=['chile','peru','mexico'];
+async function refreshMisAnalisisTable(){
+  const all=await loadSavedAnalyses();
+  document.getElementById('homeEmptyState').style.display=all.length===0?'block':'none';
+  document.getElementById('misAnalisisSection').style.display=all.length===0?'none':'block';
+  if(all.length===0)return;
+
+  const rows=all.slice().sort((a,b)=>
+    (b.params.dsoYear-a.params.dsoYear)||(b.params.dsoMonth-a.params.dsoMonth)||
+    (LOCALITY_ORDER.indexOf(a.locality)-LOCALITY_ORDER.indexOf(b.locality))
+  );
+
+  // Opciones de período se generan dinámicamente según lo que haya guardado.
+  const periods=[...new Set(rows.map(a=>a.params.dsoYear+'-'+String(a.params.dsoMonth).padStart(2,'0')))]
+    .sort().reverse();
+  const periodSelect=document.getElementById('misAnalisisFilterPeriodo');
+  periodSelect.innerHTML='<option value="">Período: Todos</option>'+periods.map(p=>{
+    const [y,m]=p.split('-');
+    return `<option value="${p}">${MONTH_NAMES[parseInt(m,10)-1]} ${y}</option>`;
+  }).join('');
+
+  tableInstances.misAnalisis=createTable('misAnalisis',{
+    rows,
+    pageSize:parseInt(document.getElementById('misAnalisisPageSize').value)||10,
+    searchFields:['label'],
+    filters:{
+      locality:a=>a.locality,
+      periodo:a=>a.params.dsoYear+'-'+String(a.params.dsoMonth).padStart(2,'0')
+    },
+    exportTitle:'Mis Análisis',
+    exportName:'DSO_mis_analisis',
+    columns:[
+      {label:'Localidad',render:a=>{const loc=LOCALITIES[a.locality]||LOCALITIES.chile;return loc.flag+' '+loc.label;},
+        value:a=>(LOCALITIES[a.locality]||LOCALITIES.chile).label},
+      {label:'Período',render:a=>MONTH_NAMES[a.params.dsoMonth-1]+' '+a.params.dsoYear,
+        value:a=>MONTH_NAMES[a.params.dsoMonth-1]+' '+a.params.dsoYear},
+      {label:'DSO',render:a=>{
+        const loc=LOCALITIES[a.locality]||LOCALITIES.chile;
+        if(loc.dualCurrency){
+          const nac=(a.meta.dsoNac!==undefined&&a.meta.dsoNac!==null)?a.meta.dsoNac+'d':'—';
+          const usd=(a.meta.dsoInt!==undefined&&a.meta.dsoInt!==null)?a.meta.dsoInt+'d':'—';
+          return `<div style="font-size:.78rem;line-height:1.6"><b>${portfolioLabel(a.locality,'nacional',true)}:</b> ${nac}<br><b>${portfolioLabel(a.locality,'internacional',true)}:</b> ${usd}</div>`;
+        }
+        return a.meta.dsoTotal!==null?a.meta.dsoTotal+'d':'—';
+      },value:a=>{
+        const loc=LOCALITIES[a.locality]||LOCALITIES.chile;
+        return loc.dualCurrency?
+          (portfolioLabel(a.locality,'nacional',true)+':'+(a.meta.dsoNac??'—')+'d '+portfolioLabel(a.locality,'internacional',true)+':'+(a.meta.dsoInt??'—')+'d'):
+          (a.meta.dsoTotal+'d');
+      }},
+      {label:'AR Total',render:a=>fmt(a.meta.totalARBal),value:a=>a.meta.totalARBal},
+      {label:'% Vencido',render:a=>a.meta.vencPct+'%',value:a=>a.meta.vencPct},
+      {label:'Churn',render:a=>a.meta.churnCount,value:a=>a.meta.churnCount},
+      {label:'Facturas',render:a=>a.meta.invoiceCount,value:a=>a.meta.invoiceCount},
+      {label:'Generado',render:a=>new Date(a.createdAt).toLocaleDateString('es-CL'),value:a=>new Date(a.createdAt).toLocaleDateString('es-CL')},
+      {label:'Acciones',value:()=>'',render:a=>{
+        const perm=currentPermissions();
+        let html='<div class="table-actions">';
+        html+=`<button class="icon-btn home-card-view" title="Ver detalle completo" onclick="event.stopPropagation();openSavedAnalysis('${a.id}')">👁️</button>`;
+        if(perm.canDownload)html+=`<button class="icon-btn home-card-pdf" title="Descargar informe en PDF" onclick="event.stopPropagation();downloadAnalysisPDF('${a.id}')">📄</button>`;
+        if(perm.canDelete)html+=`<button class="icon-btn home-card-delete" title="Eliminar" onclick="event.stopPropagation();deleteSavedAnalysis('${a.id}')">🗑️</button>`;
+        html+='</div>';
+        return html;
+      }}
+    ]
+  });
+}
+async function openSavedAnalysis(id){
+  const all=await loadSavedAnalyses();
+  const entry=all.find(a=>a.id===id);
+  if(!entry)return;
+  const p=entry.params;
+  const invoices=p.invoices.map(i=>({...i,invDate:i.invDate?new Date(i.invDate):null,dueDate:i.dueDate?new Date(i.dueDate):null}));
+  const nacInvs=invoices.filter(i=>i.portfolio==='nacional');
+  const intInvs=invoices.filter(i=>i.portfolio==='internacional');
+  currentAnalysisId=id;
+  currentLocality=entry.locality||'chile';
+  hasHistoricalData=(p.histData||[]).length>0;
+  lastGenerated={invoices,totalARBal:p.totalARBal,nacARBal:p.nacARBal,intARBal:p.intARBal,dsoTotal:p.dsoTotal,dsoNac:p.dsoNac,dsoInt:p.dsoInt,manualSales:p.manualSales,daysInMonth:p.daysInMonth,dsoMonth:p.dsoMonth,dsoYear:p.dsoYear,histData:p.histData,locality:currentLocality};
+  showScreen('dashboard');
+  renderDashboard(invoices,nacInvs,intInvs,p.totalARBal,p.nacARBal,p.intARBal,p.dsoTotal,p.dsoNac,p.dsoInt,p.manualSales,p.daysInMonth,p.dsoMonth,p.dsoYear,p.histData);
+  refreshSidebar('dashboard');
+  scrollToSection('resumen');
+}
+async function deleteSavedAnalysis(id){
+  if(!hasPermission('canDelete')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para eliminar análisis.');return;}
+  if(!confirm('¿Eliminar este análisis guardado? Esta acción no se puede deshacer.'))return;
+  const {error}=await supabase.from('analyses').delete().eq('id',id);
+  if(error){alert('No se pudo eliminar en Supabase: '+error.message);return;}
+  if(currentAnalysisId===id)currentAnalysisId=null;
+  await refreshMisAnalisisTable();
+}
+
+// ── COLUMN MAPPING ─────────────────────────────────────────────────────────
+const AR_FIELDS=[
+  {id:'customerName',label:'Nombre del Cliente',    req:true, patterns:['nombre','cliente','customer','name','entity','razon','account']},
+  {id:'invoiceDate', label:'Fecha de Factura',       req:true, patterns:['fecha factura','invoice date','transaction date','fecha','date','posting']},
+  {id:'dueDate',     label:'Fecha de Vencimiento',   req:true, patterns:['vencimiento','due date','fecha vencimiento','due','expiry','vence','f venc']},
+  {id:'amount',      label:'Monto Original',         req:true, patterns:['monto total','total amount','amount','monto','importe','total','gross']},
+  {id:'balance',     label:'Saldo Pendiente',        req:true, patterns:['balance','saldo','remaining','open balance','pendiente','adeudado']},
+  {id:'currency',    label:'Moneda (USD / CLP)',     req:true, patterns:['moneda','currency','divisa']},
+];
+
+function detect(cols,patterns){
+  const norm=s=>s.toLowerCase().replace(/[^a-záéíóúñ\s]/g,'').trim();
+  // Pattern-priority: first pattern that matches any column wins
+  for(const p of patterns){
+    for(const col of cols){if(norm(col).includes(p))return col;}
+  }
+  return '';
+}
+
+function buildFieldRow(f,cols,idPrefix,skipCurrencyNote){
+  const d=detect(cols,f.patterns);
+  const opts=cols.map(c=>`<option value="${c}"${c===d?' selected':''}>${c}</option>`).join('');
+  const isReq=f.req&&!(skipCurrencyNote&&f.id==='currency');
+  const skipNote=(skipCurrencyNote&&f.id==='currency')?' <span class="badge-opt">No necesaria (ya se sabe por el archivo)</span>':'';
+  const row=document.createElement('div');row.className='field-row';
+  row.innerHTML=`<label>${f.label}${isReq?' <span class="req">*</span>':''}${skipNote}</label><select id="map_${idPrefix}${f.id}"><option value="">— No mapear —</option>${opts}</select>`;
+  return row;
+}
+function buildMappingUI(){
+  const loc=LOCALITIES[selectedLocality];
+  document.getElementById('mappingCardSingle').style.display=loc.dualCurrency?'none':'';
+  document.getElementById('mappingCardLocal').style.display=loc.dualCurrency?'':'none';
+  document.getElementById('mappingCardUSD').style.display=loc.dualCurrency?'':'none';
+
+  if(loc.dualCurrency){
+    document.getElementById('mappingLocalLabel').textContent='Moneda Local ('+loc.currencyName+')';
+    const gLocal=document.getElementById('mappingGridLocal');
+    const gUSD=document.getElementById('mappingGridUSD');
+    gLocal.innerHTML='';gUSD.innerHTML='';
+    AR_FIELDS.forEach(f=>{
+      gLocal.appendChild(buildFieldRow(f,arColsLocal,'local_',true));
+      gUSD.appendChild(buildFieldRow(f,arColsUSD,'usd_',true));
+    });
+  }else{
+    const g=document.getElementById('mappingGridAR');
+    g.innerHTML='';
+    AR_FIELDS.forEach(f=>g.appendChild(buildFieldRow(f,arCols,'',false)));
+  }
+}
+
+// ── PARSERS ────────────────────────────────────────────────────────────────
+function parseMoney(str){
+  if(str==null||str===''||str===undefined)return 0;
+  str=str.toString().trim();
+  const isNeg=str.startsWith('(')&&str.endsWith(')');
+  str=str.replace(/[^0-9.,]/g,'');
+  if(!str)return 0;
+  const dots=(str.match(/\./g)||[]).length;
+  const commas=(str.match(/,/g)||[]).length;
+  if(dots>1){str=str.replace(/\./g,'').replace(',','.');}
+  else if(commas>1){str=str.replace(/,/g,'');}
+  else if(dots===1&&commas===1){
+    if(str.lastIndexOf(',')>str.lastIndexOf('.')){str=str.replace('.','').replace(',','.');}
+    else{str=str.replace(',','');}
+  } else if(commas===1){
+    const after=str.split(',')[1];
+    str=(after&&after.length===3)?str.replace(',',''):str.replace(',','.');
+  }
+  const n=parseFloat(str);
+  if(isNaN(n))return 0;
+  return isNeg?-Math.abs(n):Math.abs(n);
+}
+
+function parseDate(str){
+  if(!str)return null;
+  str=str.toString().trim();
+  let d=new Date(str);
+  if(!isNaN(d)&&d.getFullYear()>1990)return d;
+  const p=str.split(/[\/\-\.]/);
+  if(p.length===3){
+    const[a,b,c]=p.map(Number);
+    if(c>1990){
+      if(a<=31&&b<=12){d=new Date(c,b-1,a);if(!isNaN(d))return d;}
+      if(b<=31&&a<=12){d=new Date(c,a-1,b);if(!isNaN(d))return d;}
+    }
+    // DD-Mon-YYYY handled below
+  }
+  // Try "30-06-2026" style (already above) or "30-Jun-2026"
+  const mNames={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
+    ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+  const m=str.match(/(\d{1,2})[-\/\s]([a-z]{3})[-\/\s](\d{4})/i);
+  if(m){const mon=mNames[m[2].toLowerCase()];if(mon!==undefined)return new Date(+m[3],mon,+m[1]);}
+  return null;
+}
+
+function detectPortfolio(cur){
+  const c=(cur||'').toString().toUpperCase().trim();
+  if(c==='USD'||c.startsWith('USD')||c.includes('DOLAR')||c.includes('DOLLAR')||c.includes('US DOL'))return'internacional';
+  return'nacional';
+}
+
+// Perú/México venden en 2 monedas reales (no son "Nacional/Internacional" en el
+// sentido de Chile) — el usuario pidió usar "Moneda Local"/"USD Internacional"
+// en todo el detalle del análisis y en los exportables para esas 2 localidades.
+function portfolioLabel(locality,which,short){
+  const loc=LOCALITIES[locality]||LOCALITIES.chile;
+  if(!loc.dualCurrency)return which==='nacional'?'Nacional':'Internacional';
+  if(which==='nacional')return short?'Local':'Moneda Local';
+  return short?'USD':'USD Internacional';
+}
+
+function fmtFull(n){return n.toLocaleString('es-CL',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtDate(d){return d?d.toLocaleDateString('es-CL'):'—';}
+function fmt(n){
+  const abs=Math.abs(n);
+  const s=abs>=1e9?'$'+(abs/1e9).toFixed(1)+'B':abs>=1e6?'$'+(abs/1e6).toFixed(1)+'M':abs>=1e3?'$'+(abs/1e3).toFixed(1)+'K':'$'+abs.toFixed(0);
+  return n<0?'-'+s:s;
+}
+
+// ── DSO & AGING ────────────────────────────────────────────────────────────
+function roundUpDSO(x){return Math.ceil(x-1e-9);}
+function calcDSO(arBal,salesAmt,days){
+  if(!salesAmt||!arBal)return null;
+  return roundUpDSO((arBal/salesAmt)*days);
+}
+function fmtDSO(v){return(v===null||v===undefined||isNaN(v))?'N/A':String(roundUpDSO(v));}
+function agingBuckets(list){
+  const b={'0-30':0,'31-60':0,'61-90':0,'91-120':0,'120+':0};
+  list.filter(i=>i.isVencida).forEach(i=>{
+    const d=i.daysOverdue;
+    if(d<=30)b['0-30']+=i.balance;
+    else if(d<=60)b['31-60']+=i.balance;
+    else if(d<=90)b['61-90']+=i.balance;
+    else if(d<=120)b['91-120']+=i.balance;
+    else b['120+']+=i.balance;
+  });
+  return b;
+}
+
+// ── GENERATE DASHBOARD ─────────────────────────────────────────────────────
+function parseARRows(rows,arMap,portfolioOverride){
+  return rows.map(row=>{
+    const cn=(row[arMap.customerName]||'').toString().trim();
+    const invDate=parseDate(row[arMap.invoiceDate]);
+    const dueDate=parseDate(row[arMap.dueDate]);
+    const amount=Math.abs(parseMoney(row[arMap.amount]));
+    const balance=Math.abs(parseMoney(row[arMap.balance]));
+    const currency=arMap.currency?(row[arMap.currency]||'').toString().trim():'';
+    const portfolio=portfolioOverride||detectPortfolio(currency);
+    const isVencida=dueDate?dueDate<today:false;
+    const isChurn=cn.toLowerCase().includes('inactivo');
+    const daysOutstanding=invDate?Math.max(0,(today-invDate)/86400000):0;
+    const daysOverdue=dueDate?Math.max(0,(today-dueDate)/86400000):0;
+    return{cn,invDate,dueDate,amount,balance,currency,portfolio,isVencida,isChurn,daysOutstanding,daysOverdue};
+  }).filter(i=>i.balance>0);
+}
+
+async function generateDashboard(){
+  if(!hasPermission('canUpload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para generar análisis.');return;}
+  const loc=LOCALITIES[selectedLocality];
+  let arMap,arMapLocal,arMapUSD;
+  const missing=[];
+
+  if(loc.dualCurrency){
+    arMapLocal={};arMapUSD={};
+    AR_FIELDS.forEach(f=>{
+      arMapLocal[f.id]=document.getElementById('map_local_'+f.id).value;
+      arMapUSD[f.id]=document.getElementById('map_usd_'+f.id).value;
+      // La columna "Moneda" no es necesaria en modo dual: cada archivo ya es una sola moneda.
+      const isRequired=f.req&&f.id!=='currency';
+      if(isRequired&&!arMapLocal[f.id])missing.push(f.label+' (archivo Moneda Local)');
+      if(isRequired&&!arMapUSD[f.id])missing.push(f.label+' (archivo USD)');
+    });
+  }else{
+    arMap={};
+    AR_FIELDS.forEach(f=>{
+      arMap[f.id]=document.getElementById('map_'+f.id).value;
+      if(f.req&&!arMap[f.id])missing.push(f.label);
+    });
+  }
+  if(missing.length){alert('Faltan columnas:\n• '+missing.join('\n• '));return;}
+
+  const dsoMonth=parseInt(document.getElementById('dsoMonth').value);
+  const dsoYear =parseInt(document.getElementById('dsoYear').value);
+  const daysInMonth=new Date(dsoYear,dsoMonth,0).getDate();
+
+  let manualSales,invoices,nacInvs,intInvs,totalARBal,nacARBal,intARBal,dsoTotal,dsoNac,dsoInt;
+
+  if(loc.dualCurrency){
+    const salesLocal=parseMoney(document.getElementById('salesInputLocal').value);
+    const salesUSD=parseMoney(document.getElementById('salesInputUSD').value);
+    if(!salesLocal||salesLocal<=0||!salesUSD||salesUSD<=0){alert('Ingresa ambos montos de ventas (moneda local y USD).');return;}
+    manualSales=salesLocal+salesUSD;
+
+    // Cada archivo YA es una sola moneda -- la cartera se asigna por origen del
+    // archivo, no por una columna de moneda (evita depender de que esa columna
+    // exista o esté bien escrita en el export de NetSuite). Cada archivo tiene
+    // su PROPIO mapeo de columnas, ya que pueden venir con estructuras distintas.
+    nacInvs=parseARRows(rawARLocal,arMapLocal,'nacional');
+    intInvs=parseARRows(rawARUSD,arMapUSD,'internacional');
+    invoices=[...nacInvs,...intInvs];
+    nacARBal=nacInvs.reduce((s,i)=>s+i.balance,0);
+    intARBal=intInvs.reduce((s,i)=>s+i.balance,0);
+    totalARBal=nacARBal+intARBal;
+
+    dsoTotal=calcDSO(totalARBal,manualSales,daysInMonth);
+    // DSO por moneda: cada uno con SU PROPIO monto de ventas real, sin
+    // aproximar por proporción de AR (a diferencia del modo de un solo archivo).
+    dsoNac=calcDSO(nacARBal,salesLocal,daysInMonth);
+    dsoInt=calcDSO(intARBal,salesUSD,daysInMonth);
+  }else{
+    manualSales=parseMoney(document.getElementById('salesInput').value);
+    if(!manualSales||manualSales<=0){alert('Ingresa un monto de ventas válido.');return;}
+
+    invoices=parseARRows(rawAR,arMap,null);
+    nacInvs=invoices.filter(i=>i.portfolio==='nacional');
+    intInvs=invoices.filter(i=>i.portfolio==='internacional');
+    totalARBal=invoices.reduce((s,i)=>s+i.balance,0);
+    nacARBal=nacInvs.reduce((s,i)=>s+i.balance,0);
+    intARBal=intInvs.reduce((s,i)=>s+i.balance,0);
+
+    dsoTotal=calcDSO(totalARBal,manualSales,daysInMonth);
+    // Un solo archivo mezcla ambas monedas: se reparte la venta proporcionalmente
+    // al peso del AR de cada cartera (aproximación, ya que no hay venta separada
+    // por moneda en este modo).
+    const nacPct=totalARBal>0?nacARBal/totalARBal:0;
+    const intPct=totalARBal>0?intARBal/totalARBal:0;
+    dsoNac=calcDSO(nacARBal,manualSales*nacPct,daysInMonth);
+    dsoInt=calcDSO(intARBal,manualSales*intPct,daysInMonth);
+  }
+
+  // Historical DSO
+  let histData=[];
+  if(loc.showHistoricalUpload&&rawHist){
+    histData=rawHist.map(row=>{
+      const vals=Object.values(row);
+      return{label:(vals[0]||'').toString().trim(),dso:roundUpDSO(parseFloat(vals[1]))};
+    }).filter(r=>r.label&&!isNaN(r.dso));
+  }else if(!loc.showHistoricalUpload){
+    histData=await buildAutoHistorical(selectedLocality,dsoMonth,dsoYear);
+  }
+  const nowLabel=MONTH_NAMES[dsoMonth-1].substring(0,3)+'-'+String(dsoYear).slice(-2);
+  const alreadyHasNow=histData.length>0&&histData[histData.length-1].label===nowLabel;
+  if(dsoTotal!==null&&!alreadyHasNow)histData.push({label:nowLabel+' ▶',dso:dsoTotal,isCurrent:true});
+
+  currentLocality=selectedLocality;
+  lastGenerated={invoices,totalARBal,nacARBal,intARBal,dsoTotal,dsoNac,dsoInt,manualSales,daysInMonth,dsoMonth,dsoYear,histData,locality:selectedLocality};
+
+  showScreen('dashboard');
+  renderDashboard(invoices,nacInvs,intInvs,totalARBal,nacARBal,intARBal,
+    dsoTotal,dsoNac,dsoInt,manualSales,daysInMonth,dsoMonth,dsoYear,histData);
+  refreshSidebar('dashboard');
+  scrollToSection('resumen');
+}
+
+// ── CHART HELPERS ──────────────────────────────────────────────────────────
+const AGING_COLORS=['#e4efc9','#a9cf3d','#e9a23b','#ef4444','#8f2323'];
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id).getContext('2d'),cfg);}
+
+function renderDonut(id,list,total){
+  const v=list.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const g=list.filter(i=>!i.isVencida).reduce((s,i)=>s+i.balance,0);
+  mkChart(id,{type:'doughnut',
+    data:{labels:['Vencidas','Vigentes'],datasets:[{data:[v,g],backgroundColor:['#ef4444','#6f9c3d'],borderWidth:2,borderColor:'#fff',hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)+(total?' ('+(ctx.raw/total*100).toFixed(1)+'%)':'')}}}}});
+}
+function renderAging(id,list){
+  const ag=agingBuckets(list);
+  mkChart(id,{type:'bar',
+    data:{labels:Object.keys(ag),datasets:[{data:Object.values(ag),backgroundColor:AGING_COLORS,borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>fmt(v)}}}}});
+}
+
+// ── RENDER DASHBOARD ───────────────────────────────────────────────────────
+function renderDashboard(invoices,nacInvs,intInvs,totalARBal,nacARBal,intARBal,
+  dsoTotal,dsoNac,dsoInt,manualSales,daysInMonth,dsoMonth,dsoYear,histData){
+
+  const vencBal=invoices.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const pctVenc=totalARBal?(vencBal/totalARBal*100):0;
+  const churnInvs=invoices.filter(i=>i.isChurn);
+  const churnClients=[...new Set(churnInvs.map(i=>i.cn))];
+  const monthLabel=MONTH_NAMES[dsoMonth-1]+' '+dsoYear;
+
+  // Header
+  document.getElementById('asOfDate').textContent=LOCALITIES[currentLocality].flag+' '+LOCALITIES[currentLocality].label+' · AR al '+today.toLocaleDateString('es-ES')+' · Ventas: '+monthLabel+' ('+daysInMonth+' días)';
+
+  // KPIs
+  document.getElementById('kpiDSO').textContent=dsoTotal!==null?fmtDSO(dsoTotal)+' días':'N/A';
+  document.getElementById('kpiDSOSub').textContent='AR / Ventas '+monthLabel+' × '+daysInMonth+'d';
+  document.getElementById('kpiAR').textContent=fmt(totalARBal);
+  document.getElementById('kpiARSub').textContent=invoices.length+' facturas abiertas';
+  document.getElementById('kpiVencido').textContent=pctVenc.toFixed(1)+'%';
+  document.getElementById('kpiVencidoSub').textContent=fmt(vencBal)+' vencido';
+  document.getElementById('kpiChurn').textContent=churnClients.length;
+  document.getElementById('kpiChurnSub').textContent=fmt(churnInvs.reduce((s,i)=>s+i.balance,0))+' en riesgo';
+
+  // Calc detail box
+  document.getElementById('calcAR').textContent=fmtFull(totalARBal);
+  document.getElementById('calcSales').textContent=fmtFull(manualSales);
+  document.getElementById('calcDays').textContent=daysInMonth;
+  document.getElementById('calcFormula').textContent=
+    'DSO = '+fmtFull(totalARBal)+' / '+fmtFull(manualSales)+' × '+daysInMonth+' = '+(dsoTotal!==null?fmtDSO(dsoTotal)+' días':'N/A');
+
+  // ── Impacto de clientes inactivos en el DSO ───────────────────────────────
+  // Las ventas del mes son un dato único de la empresa (no varían por cliente),
+  // así que se mantienen fijas; solo se recalcula el AR excluyendo inactivos.
+  const churnARBal=churnInvs.reduce((s,i)=>s+i.balance,0);
+  const churnPct=totalARBal?churnARBal/totalARBal:0;
+  const arSinInactivos=totalARBal-churnARBal;
+  const dsoConInactivos=dsoTotal;
+  const dsoSinInactivos=calcDSO(arSinInactivos,manualSales,daysInMonth);
+  const deltaInactivos=(dsoConInactivos!==null&&dsoSinInactivos!==null)?Math.round((dsoConInactivos-dsoSinInactivos)*10)/10:null;
+
+  document.getElementById('kpiDSOConInactivos').textContent=dsoConInactivos!==null?fmtDSO(dsoConInactivos)+'d':'N/A';
+  document.getElementById('kpiDSOSinInactivos').textContent=dsoSinInactivos!==null?fmtDSO(dsoSinInactivos)+'d':'N/A';
+  document.getElementById('kpiImpactoInactivos').textContent=deltaInactivos!==null?(deltaInactivos>=0?'+':'')+fmtDSO(deltaInactivos)+'d':'N/A';
+  document.getElementById('kpiARInactivos').textContent=fmt(churnARBal)+' ('+(churnPct*100).toFixed(1)+'%)';
+
+  document.getElementById('impactoTexto').textContent=deltaInactivos===null?
+    'No hay suficientes datos para calcular el impacto de los clientes inactivos en el DSO.':
+    `Los clientes marcados como inactivos representan ${fmtFull(churnARBal)} (${(churnPct*100).toFixed(1)}% del AR total). Si se excluyen del cálculo, el DSO pasaría de ${fmtDSO(dsoConInactivos)} a ${fmtDSO(dsoSinInactivos)} días, una diferencia de ${deltaInactivos>=0?'+':''}${fmtDSO(deltaInactivos)} días. `+
+    (deltaInactivos>0?'Esto confirma que la cartera inactiva, más difícil de cobrar, está inflando el DSO general de la compañía.':
+     deltaInactivos<0?'En este caso, excluir a los inactivos aumentaría el DSO calculado, lo que sugiere que su cartera vencida pesa menos que el resto de la cartera activa.':
+     'Los clientes inactivos no muestran un impacto relevante sobre el DSO en este período.');
+
+  mkChart('chartInactiveImpact',{type:'bar',
+    data:{labels:['Con inactivos','Sin inactivos'],
+      datasets:[{data:[dsoConInactivos||0,dsoSinInactivos||0],
+        backgroundColor:['#f59e0b','#6f9c3d'],borderRadius:6,borderSkipped:false,maxBarThickness:90}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtDSO(ctx.raw)+' días'}}},
+      scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>roundUpDSO(v)+'d'}},x:{grid:{display:false}}}}});
+
+  // Portfolio KPIs
+  const nacVencBal=nacInvs.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const intVencBal=intInvs.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  document.getElementById('kpiDSONac').textContent=dsoNac!==null?fmtDSO(dsoNac)+'d':'N/A';
+  document.getElementById('kpiARNac').textContent=fmt(nacARBal);
+  document.getElementById('kpiVencNac').textContent=nacARBal?(nacVencBal/nacARBal*100).toFixed(1)+'%':'0%';
+  document.getElementById('kpiDSOInt').textContent=dsoInt!==null?fmtDSO(dsoInt)+'d':'N/A';
+  document.getElementById('kpiARInt').textContent=fmt(intARBal);
+  document.getElementById('kpiVencInt').textContent=intARBal?(intVencBal/intARBal*100).toFixed(1)+'%':'0%';
+
+  // ── Terminología dinámica: Chile usa "Nacional/Internacional"; Perú/México
+  // usan "Moneda Local/USD Internacional" en todo el detalle y en exportables.
+  const locCfg=LOCALITIES[currentLocality]||LOCALITIES.chile;
+  const nacLabel=portfolioLabel(currentLocality,'nacional');
+  const intLabel=portfolioLabel(currentLocality,'internacional');
+  document.getElementById('carteraSectionTitle').textContent=locCfg.dualCurrency?'💱 Concentración por Moneda':'🌎 Concentración por Cartera';
+  document.getElementById('carteraSectionSub').textContent=locCfg.dualCurrency?
+    (nacLabel+' = '+locCfg.currencyName+' · '+intLabel+' = USD'):'Nacional = CLP · Internacional = USD';
+  document.getElementById('carteraNacHeader').textContent=(locCfg.dualCurrency?'💱 ':'🇨🇱 ')+(locCfg.dualCurrency?nacLabel:'Cartera Nacional')+(locCfg.dualCurrency?' ('+locCfg.currencyName+')':' (CLP)');
+  document.getElementById('carteraIntHeader').textContent='🌐 '+(locCfg.dualCurrency?intLabel:'Cartera Internacional (USD)');
+  document.getElementById('kpiDSONacLabel').textContent='DSO '+nacLabel;
+  document.getElementById('kpiDSOIntLabel').textContent='DSO '+intLabel;
+  document.getElementById('agingNacHeader').textContent='Antigüedad '+nacLabel;
+  document.getElementById('agingIntHeader').textContent='Antigüedad '+intLabel;
+  document.getElementById('vencidoNacHeader').textContent='Vencidas vs Vigentes'+(locCfg.dualCurrency?' ('+nacLabel+')':'');
+  document.getElementById('vencidoIntHeader').textContent='Vencidas vs Vigentes'+(locCfg.dualCurrency?' ('+intLabel+')':'');
+  document.getElementById('churnOptNacional').textContent=nacLabel;
+  document.getElementById('churnOptInternacional').textContent=intLabel;
+  document.getElementById('invoicesOptNacional').textContent=nacLabel;
+  document.getElementById('invoicesOptInternacional').textContent=intLabel;
+
+  // Indicador de qué moneda(s) se usaron para construir cada gráfico —
+  // pedido explícito del usuario ("en los gráficos debes indicar qué moneda
+  // es la que tomaste en cuenta para la construcción del gráfico"). Los
+  // gráficos "Total"/"Top Clientes"/"Histórico" combinan ambas monedas sin
+  // conversión de tipo de cambio cuando la localidad es dual-moneda.
+  document.getElementById('totalSectionSub').textContent=locCfg.dualCurrency?
+    'Distribución de saldo vencido vs vigente y antigüedad de facturas (días desde vencimiento) · ⚠️ Combina '+nacLabel+' + '+intLabel+' SIN conversión de tipo de cambio':
+    'Distribución de saldo vencido vs vigente y antigüedad de facturas (días desde vencimiento)';
+  document.getElementById('topClientesSectionSub').textContent=locCfg.dualCurrency?
+    'Saldo pendiente total por cliente (amarillo = churn / inactivo) · ⚠️ Combina '+nacLabel+' + '+intLabel+' SIN conversión de tipo de cambio':
+    'Saldo pendiente total por cliente (amarillo = churn / inactivo)';
+  document.getElementById('historicoSectionSub').textContent=locCfg.dualCurrency?
+    'DSO mensual — el punto actual (rojo) fue calculado con los datos cargados · Refleja el DSO combinado ('+nacLabel+' + '+intLabel+', sin conversión)':
+    'DSO mensual — el punto actual (rojo) fue calculado con los datos cargados';
+  document.getElementById('impactoSectionSub').textContent=locCfg.dualCurrency?
+    'Comparación del DSO considerando vs. excluyendo a los clientes marcados como "inactivo" · Basado en el DSO combinado ('+nacLabel+' + '+intLabel+', sin conversión)':
+    'Comparación del DSO considerando vs. excluyendo a los clientes marcados como "inactivo" (cartera de cobro más difícil)';
+
+  // Resumen: para localidades dual-moneda, el DSO "combinado" (mezcla monedas
+  // distintas sin conversión) se reemplaza por los dos DSO reales, uno por
+  // moneda, en vez de un único "DSO Total" ambiguo.
+  document.getElementById('kpiDSOUSDCard').style.display=locCfg.dualCurrency?'':'none';
+  if(locCfg.dualCurrency){
+    document.getElementById('kpiDSOLabel').textContent='DSO '+nacLabel;
+    document.getElementById('kpiDSO').textContent=dsoNac!==null?fmtDSO(dsoNac)+' días':'N/A';
+    document.getElementById('kpiDSOSub').textContent='AR '+locCfg.currencyName+' / Ventas '+locCfg.currencyName;
+    document.getElementById('kpiDSOUSD').textContent=dsoInt!==null?fmtDSO(dsoInt)+' días':'N/A';
+  }else{
+    document.getElementById('kpiDSOLabel').textContent='DSO Total';
+  }
+
+  // Gráfico "DSO por Moneda" — solo para localidades dual-moneda. Compara
+  // el DSO real de cada moneda lado a lado (cada uno calculado con su
+  // propia venta, sin aproximar).
+  document.getElementById('dsoPorMonedaBox').style.display=locCfg.dualCurrency?'':'none';
+  if(locCfg.dualCurrency){
+    mkChart('chartDSOPorMoneda',{type:'bar',
+      data:{labels:[nacLabel,intLabel],
+        datasets:[{data:[dsoNac||0,dsoInt||0],backgroundColor:['#6f9c3d','#3f5c34'],borderRadius:6,borderSkipped:false,maxBarThickness:90}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtDSO(ctx.raw)+' días'}}},
+        scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>roundUpDSO(v)+'d'}},x:{grid:{display:false}}}}});
+  }else if(charts.chartDSOPorMoneda){
+    charts.chartDSOPorMoneda.destroy();
+    delete charts.chartDSOPorMoneda;
+  }
+
+  // Historical chart
+  hasHistoricalData=histData.length>0;
+  document.getElementById('sec-historico').style.display=hasHistoricalData?'':'none';
+  if(hasHistoricalData){
+    mkChart('chartHistorical',{type:'line',
+      data:{labels:histData.map(r=>r.label),datasets:[{label:'DSO (días)',data:histData.map(r=>r.dso),
+        borderColor:'#6f9c3d',backgroundColor:'rgba(111,156,61,0.08)',tension:0.35,fill:true,
+        pointRadius:histData.map(r=>r.isCurrent?8:4),
+        pointBackgroundColor:histData.map(r=>r.isCurrent?'#ef4444':'#6f9c3d'),
+        pointBorderColor:'#fff',pointBorderWidth:1.5,borderWidth:2.5}]},
+      options:{responsive:true,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtDSO(ctx.raw)+' días'+(histData[ctx.dataIndex].isCurrent?' ◀ Actual':'')}}},
+        scales:{x:{grid:{display:false},ticks:{maxRotation:45,font:{size:11}}},
+          y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>roundUpDSO(v)+'d'}}}}});
+  }
+
+  // Concentration charts
+  renderDonut('chartVencidoTotal',invoices,totalARBal);
+  renderAging('chartAgingTotal',invoices);
+  renderDonut('chartVencidoNac',nacInvs,nacARBal);
+  renderAging('chartAgingNac',nacInvs);
+  renderDonut('chartVencidoInt',intInvs,intARBal);
+  renderAging('chartAgingInt',intInvs);
+
+  // Top 15 clients
+  const byClient={};
+  invoices.forEach(i=>{byClient[i.cn]=(byClient[i.cn]||0)+i.balance;});
+  const top=Object.entries(byClient).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const isChurnMap={};invoices.forEach(i=>{isChurnMap[i.cn]=i.isChurn;});
+  mkChart('chartTopClientes',{type:'bar',
+    data:{labels:top.map(([n])=>n.length>32?n.substring(0,30)+'…':n),
+      datasets:[{label:'Saldo',data:top.map(([,v])=>v),
+        backgroundColor:top.map(([n])=>isChurnMap[n]?'#f59e0b':'#6f9c3d'),borderRadius:5,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}},
+      scales:{x:{grid:{color:'#f1f5f9'},ticks:{callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+
+  // ── Export sources (chart data for PDF/XLSX download) ────────────────────
+  reportStats={
+    dsoTotal,dsoNac,dsoInt,totalARBal,nacARBal,intARBal,vencBal,nacVencBal,intVencBal,
+    pctVenc,churnCount:churnClients.length,churnBal:churnInvs.reduce((s,i)=>s+i.balance,0),
+    monthLabel,daysInMonth,manualSales,invoiceCount:invoices.length
+  };
+  exportSources={};
+  exportSources.vencidoTotal={title:'Vencidas vs Vigentes — Total',sheet:'VencidoTotal',headers:['Estado','Saldo'],rows:[['Vencidas',vencBal],['Vigentes',totalARBal-vencBal]]};
+  exportSources.agingTotal=buildAgingSource('Antigüedad de cartera — Total','AgingTotal',invoices);
+  exportSources.vencidoNac={title:'Vencidas vs Vigentes — '+nacLabel,sheet:'VencidoNac',headers:['Estado','Saldo'],rows:[['Vencidas',nacVencBal],['Vigentes',nacARBal-nacVencBal]]};
+  exportSources.agingNac=buildAgingSource('Antigüedad — '+nacLabel,'AgingNac',nacInvs);
+  exportSources.vencidoInt={title:'Vencidas vs Vigentes — '+intLabel,sheet:'VencidoInt',headers:['Estado','Saldo'],rows:[['Vencidas',intVencBal],['Vigentes',intARBal-intVencBal]]};
+  exportSources.agingInt=buildAgingSource('Antigüedad — '+intLabel,'AgingInt',intInvs);
+  exportSources.topClientes={title:'Top 15 Clientes por Saldo',sheet:'TopClientes',headers:['Cliente','Saldo'],rows:top.map(([n,v])=>[n,v])};
+  if(histData.length>0){
+    exportSources.historical={title:'Tendencia Histórica de DSO',sheet:'Historico',headers:['Mes','DSO (días)'],rows:histData.map(r=>[r.label,r.dso])};
+  }
+  exportSources.impacto={title:'Impacto de Clientes Inactivos en el DSO',sheet:'ImpactoInactivos',headers:['Escenario','DSO (días)'],rows:[['Con inactivos',dsoConInactivos||0],['Sin inactivos',dsoSinInactivos||0]]};
+  if(locCfg.dualCurrency){
+    exportSources.dsoPorMoneda={title:'DSO por Moneda — '+nacLabel+' vs '+intLabel,sheet:'DSOPorMoneda',headers:['Moneda','DSO (días)'],rows:[[nacLabel,dsoNac||0],[intLabel,dsoInt||0]]};
+  }
+
+  const chartLabels={
+    vencidoTotal:'Vencidas vs Vigentes (Total)',agingTotal:'Antigüedad (Total)',
+    vencidoNac:'Vencidas vs Vigentes ('+nacLabel+')',agingNac:'Antigüedad ('+nacLabel+')',
+    vencidoInt:'Vencidas vs Vigentes ('+intLabel+')',agingInt:'Antigüedad ('+intLabel+')',
+    topClientes:'Top 15 Clientes',historical:'Histórico de DSO',impacto:'Impacto Inactivos en DSO',
+    dsoPorMoneda:'DSO por Moneda ('+nacLabel+' vs '+intLabel+')'
+  };
+  const grid=document.getElementById('chartSelectGrid');
+  grid.innerHTML='';
+  Object.keys(chartLabels).forEach(key=>{
+    if(!exportSources[key])return;
+    const label=document.createElement('label');
+    label.className='chk-pill';
+    label.innerHTML=`<input type="checkbox" value="${key}" checked> ${chartLabels[key]}`;
+    grid.appendChild(label);
+  });
+
+  // ── Churn table ────────────────────────────────────────────────────────────
+  const churnByClient={};
+  churnInvs.forEach(i=>{
+    if(!churnByClient[i.cn])churnByClient[i.cn]={portfolio:i.portfolio,total:0,vencido:0,vigente:0,count:0};
+    churnByClient[i.cn].total+=i.balance;
+    if(i.isVencida)churnByClient[i.cn].vencido+=i.balance;
+    else churnByClient[i.cn].vigente+=i.balance;
+    churnByClient[i.cn].count++;
+  });
+  const churnRows=Object.entries(churnByClient).sort((a,b)=>b[1].total-a[1].total)
+    .map(([name,d])=>({name,cartera:d.portfolio,total:d.total,vencido:d.vencido,vigente:d.vigente,count:d.count}));
+
+  tableInstances.churn=createTable('churn',{
+    rows:churnRows,
+    pageSize:parseInt(document.getElementById('churnPageSize').value)||10,
+    searchFields:['name'],
+    filters:{cartera:r=>r.cartera},
+    exportTitle:'Clientes Churn',
+    exportName:'DSO_clientes_churn',
+    columns:[
+      {label:'Cliente',render:r=>`<b>${r.name}</b>`,value:r=>r.name},
+      {label:'Cartera',render:r=>`<span class="badge ${r.cartera==='internacional'?'badge-purple':'badge-blue'}">${portfolioLabel(currentLocality,r.cartera)}</span>`,value:r=>portfolioLabel(currentLocality,r.cartera)},
+      {label:'Saldo Total',render:r=>fmt(r.total),value:r=>r.total},
+      {label:'Vencido',render:r=>`<span style="color:var(--danger)">${fmt(r.vencido)}</span>`,value:r=>r.vencido},
+      {label:'Vigente',render:r=>`<span style="color:var(--accent)">${fmt(r.vigente)}</span>`,value:r=>r.vigente},
+      {label:'Facturas',render:r=>r.count,value:r=>r.count},
+      {label:'Estado',render:()=>'<span class="badge badge-yellow">Churn</span>',value:()=>'Churn'}
+    ]
+  });
+
+  // ── Invoices detail table ───────────────────────────────────────────────
+  const invoiceRows=invoices.map(i=>({
+    cliente:i.cn,cartera:i.portfolio,fInvoice:i.invDate,fDue:i.dueDate,
+    monto:i.amount,saldo:i.balance,estado:i.isVencida?'vencido':'vigente',
+    diasVencido:i.isVencida?Math.round(i.daysOverdue):0
+  }));
+
+  tableInstances.invoices=createTable('invoices',{
+    rows:invoiceRows,
+    pageSize:parseInt(document.getElementById('invoicesPageSize').value)||25,
+    searchFields:['cliente'],
+    filters:{cartera:r=>r.cartera,estado:r=>r.estado},
+    exportTitle:'Detalle de Facturas',
+    exportName:'DSO_detalle_facturas',
+    columns:[
+      {label:'Cliente',render:r=>`<b>${r.cliente}</b>`,value:r=>r.cliente},
+      {label:'Cartera',render:r=>`<span class="badge ${r.cartera==='internacional'?'badge-purple':'badge-blue'}">${portfolioLabel(currentLocality,r.cartera)}</span>`,value:r=>portfolioLabel(currentLocality,r.cartera)},
+      {label:'F. Factura',render:r=>fmtDate(r.fInvoice),value:r=>fmtDate(r.fInvoice)},
+      {label:'F. Vencimiento',render:r=>fmtDate(r.fDue),value:r=>fmtDate(r.fDue)},
+      {label:'Monto',render:r=>fmt(r.monto),value:r=>r.monto},
+      {label:'Saldo',render:r=>fmt(r.saldo),value:r=>r.saldo},
+      {label:'Estado',render:r=>`<span class="badge ${r.estado==='vencido'?'badge-red':'badge-green'}">${r.estado==='vencido'?'Vencido':'Vigente'}</span>`,value:r=>r.estado==='vencido'?'Vencido':'Vigente'},
+      {label:'Días Vencido',render:r=>r.diasVencido,value:r=>r.diasVencido}
+    ]
+  });
+}
+
+function buildAgingSource(title,sheet,list){
+  const ag=agingBuckets(list);
+  return{title,sheet,headers:['Rango','Saldo'],rows:Object.entries(ag)};
+}
+
+// Recalcula las fuentes de gráficos (para PDF/XLSX) a partir de los datos ya
+// guardados de un análisis, sin tocar el DOM ni los canvases — se puede usar
+// aunque el análisis no esté siendo mostrado en pantalla.
+function computeExportSourcesFromParams(p,locality){
+  const invoices=p.invoices;
+  const nacInvs=invoices.filter(i=>i.portfolio==='nacional');
+  const intInvs=invoices.filter(i=>i.portfolio==='internacional');
+  const totalARBal=p.totalARBal,nacARBal=p.nacARBal,intARBal=p.intARBal,dsoTotal=p.dsoTotal;
+
+  const vencBal=invoices.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const nacVencBal=nacInvs.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const intVencBal=intInvs.filter(i=>i.isVencida).reduce((s,i)=>s+i.balance,0);
+  const churnARBal=invoices.filter(i=>i.isChurn).reduce((s,i)=>s+i.balance,0);
+  const dsoSinInactivos=calcDSO(totalARBal-churnARBal,p.manualSales,p.daysInMonth);
+
+  const byClient={};
+  invoices.forEach(i=>{byClient[i.cn]=(byClient[i.cn]||0)+i.balance;});
+  const top=Object.entries(byClient).sort((a,b)=>b[1]-a[1]).slice(0,15);
+
+  const nacLabel=portfolioLabel(locality,'nacional');
+  const intLabel=portfolioLabel(locality,'internacional');
+
+  const sources={};
+  sources.vencidoTotal={title:'Vencidas vs Vigentes — Total',sheet:'VencidoTotal',headers:['Estado','Saldo'],rows:[['Vencidas',vencBal],['Vigentes',totalARBal-vencBal]]};
+  sources.agingTotal=buildAgingSource('Antigüedad de cartera — Total','AgingTotal',invoices);
+  sources.vencidoNac={title:'Vencidas vs Vigentes — '+nacLabel,sheet:'VencidoNac',headers:['Estado','Saldo'],rows:[['Vencidas',nacVencBal],['Vigentes',nacARBal-nacVencBal]]};
+  sources.agingNac=buildAgingSource('Antigüedad — '+nacLabel,'AgingNac',nacInvs);
+  sources.vencidoInt={title:'Vencidas vs Vigentes — '+intLabel,sheet:'VencidoInt',headers:['Estado','Saldo'],rows:[['Vencidas',intVencBal],['Vigentes',intARBal-intVencBal]]};
+  sources.agingInt=buildAgingSource('Antigüedad — '+intLabel,'AgingInt',intInvs);
+  sources.topClientes={title:'Top 15 Clientes por Saldo',sheet:'TopClientes',headers:['Cliente','Saldo'],rows:top.map(([n,v])=>[n,v])};
+  if((p.histData||[]).length>0){
+    sources.historical={title:'Tendencia Histórica de DSO',sheet:'Historico',headers:['Mes','DSO (días)'],rows:p.histData.map(r=>[r.label,r.dso])};
+  }
+  sources.impacto={title:'Impacto de Clientes Inactivos en el DSO',sheet:'ImpactoInactivos',headers:['Escenario','DSO (días)'],rows:[['Con inactivos',dsoTotal||0],['Sin inactivos',dsoSinInactivos||0]]};
+  const locCfg=LOCALITIES[locality]||LOCALITIES.chile;
+  if(locCfg.dualCurrency){
+    sources.dsoPorMoneda={title:'DSO por Moneda — '+nacLabel+' vs '+intLabel,sheet:'DSOPorMoneda',headers:['Moneda','DSO (días)'],rows:[[nacLabel,p.dsoNac||0],[intLabel,p.dsoInt||0]]};
+  }
+  return sources;
+}
+
+// ── GENERIC DATA TABLE (search + filters + pagination + selection) ─────────
+let exportSources={};
+let reportStats={};
+const tableInstances={};
+
+function freshEl(id){
+  const el=document.getElementById(id);
+  if(!el)return null;
+  const clone=el.cloneNode(true);
+  el.parentNode.replaceChild(clone,el);
+  return clone;
+}
+function freshAll(selector){
+  return [...document.querySelectorAll(selector)].map(el=>{
+    const clone=el.cloneNode(true);
+    el.parentNode.replaceChild(clone,el);
+    return clone;
+  });
+}
+
+function createTable(id,cfg){
+  cfg.rows.forEach((r,i)=>{r.__k=id+'_'+i;});
+  const state={page:1,pageSize:cfg.pageSize||10,query:'',filters:{}};
+  const selected=new Set();
+
+  function filteredRows(){
+    let rows=cfg.rows;
+    if(state.query){
+      const q=state.query.toLowerCase();
+      rows=rows.filter(r=>cfg.searchFields.some(f=>String(r[f]||'').toLowerCase().includes(q)));
+    }
+    Object.entries(state.filters).forEach(([fk,val])=>{
+      if(val&&cfg.filters[fk])rows=rows.filter(r=>String(cfg.filters[fk](r))===val);
+    });
+    return rows;
+  }
+
+  function updateFooter(count){
+    const info=document.getElementById(id+'Info');
+    if(!info)return;
+    if(count===0){info.textContent='Sin resultados';return;}
+    const start=(state.page-1)*state.pageSize+1;
+    const end=Math.min(state.page*state.pageSize,count);
+    info.textContent=`Mostrando ${start}–${end} de ${count}`+(selected.size?` · ${selected.size} seleccionadas`:'');
+  }
+
+  function syncSelectAll(rows){
+    const allBox=document.getElementById(id+'SelectAll');
+    if(!allBox)return;
+    const pageStart=(state.page-1)*state.pageSize;
+    const pageRows=rows.slice(pageStart,pageStart+state.pageSize);
+    allBox.checked=pageRows.length>0&&pageRows.every(r=>selected.has(r.__k));
+  }
+
+  function render(){
+    const rows=filteredRows();
+    const totalPages=Math.max(1,Math.ceil(rows.length/state.pageSize));
+    if(state.page>totalPages)state.page=totalPages;
+    if(state.page<1)state.page=1;
+    const start=(state.page-1)*state.pageSize;
+    const pageRows=rows.slice(start,start+state.pageSize);
+    const tbody=document.getElementById(id+'Body');
+    tbody.innerHTML='';
+    pageRows.forEach(r=>{
+      const tr=document.createElement('tr');
+      let html=`<td><input type="checkbox" class="row-chk" data-key="${r.__k}" ${selected.has(r.__k)?'checked':''}></td>`;
+      cfg.columns.forEach(c=>{html+=`<td>${c.render(r)}</td>`;});
+      tr.innerHTML=html;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.row-chk').forEach(chk=>{
+      chk.addEventListener('change',()=>{
+        if(chk.checked)selected.add(chk.dataset.key);else selected.delete(chk.dataset.key);
+        updateFooter(rows.length);syncSelectAll(rows);
+      });
+    });
+    const emptyEl=document.getElementById(id+'Empty');
+    if(emptyEl)emptyEl.style.display=pageRows.length===0?'block':'none';
+    updateFooter(rows.length);
+    syncSelectAll(rows);
+    const pi=document.getElementById(id+'PageIndicator');
+    if(pi)pi.textContent=`Pág. ${state.page} de ${totalPages}`;
+    const prevBtn=document.getElementById(id+'Prev');
+    if(prevBtn)prevBtn.disabled=state.page<=1;
+    const nextBtn=document.getElementById(id+'Next');
+    if(nextBtn)nextBtn.disabled=state.page>=totalPages;
+  }
+
+  const searchEl=freshEl(id+'Search');
+  if(searchEl)searchEl.addEventListener('input',()=>{state.query=searchEl.value;state.page=1;render();});
+
+  freshAll(`[data-table="${id}"]`).forEach(sel=>{
+    sel.addEventListener('change',()=>{state.filters[sel.dataset.filter]=sel.value;state.page=1;render();});
+  });
+
+  const pageSizeEl=freshEl(id+'PageSize');
+  if(pageSizeEl){
+    state.pageSize=parseInt(pageSizeEl.value)||state.pageSize;
+    pageSizeEl.addEventListener('change',()=>{state.pageSize=parseInt(pageSizeEl.value);state.page=1;render();});
+  }
+  const prevEl=freshEl(id+'Prev');
+  if(prevEl)prevEl.addEventListener('click',()=>{state.page--;render();});
+  const nextEl=freshEl(id+'Next');
+  if(nextEl)nextEl.addEventListener('click',()=>{state.page++;render();});
+  const selectAllEl=freshEl(id+'SelectAll');
+  if(selectAllEl)selectAllEl.addEventListener('change',()=>{
+    const rows=filteredRows();
+    const pageStart=(state.page-1)*state.pageSize;
+    const pageRows=rows.slice(pageStart,pageStart+state.pageSize);
+    pageRows.forEach(r=>{if(selectAllEl.checked)selected.add(r.__k);else selected.delete(r.__k);});
+    render();
+  });
+
+  render();
+
+  return{
+    getFilteredRows:filteredRows,
+    getSelectedRows:()=>cfg.rows.filter(r=>selected.has(r.__k)),
+    columns:cfg.columns,
+    exportTitle:cfg.exportTitle,
+    exportName:cfg.exportName
+  };
+}
+
+// ── EXPORT: tables (PDF / XLSX) ──────────────────────────────────────────────
+function exportTableData(id,format){
+  if(!hasPermission('canDownload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para descargar.');return;}
+  const inst=tableInstances[id];
+  if(!inst)return;
+  let rows=inst.getSelectedRows();
+  if(rows.length===0)rows=inst.getFilteredRows();
+  if(rows.length===0){alert('No hay datos para exportar.');return;}
+  const headers=inst.columns.map(c=>c.label);
+  const body=rows.map(r=>inst.columns.map(c=>c.value?c.value(r):String(c.render(r)).replace(/<[^>]+>/g,'')));
+  if(format==='xlsx')downloadXLSX(inst.exportName||id,headers,body);
+  else downloadPDFTable(inst.exportTitle||id,headers,body);
+}
+
+// ── PDF REPORT HELPERS (informe gerencial, tamaño carta) ────────────────────
+const PDF_COLORS={
+  ink:[28,28,21],oliveDark:[88,124,47],olive:[111,156,61],
+  lime:[169,207,61],sage:[238,243,223],danger:[239,68,68],
+  warning:[245,158,11],muted:[117,117,106],text:[35,38,28]
+};
+
+const CHART_TITLES={
+  vencidoTotal:'Vencidas vs Vigentes — Total',agingTotal:'Antigüedad de Cartera — Total',
+  vencidoNac:'Vencidas vs Vigentes — Nacional',agingNac:'Antigüedad de Cartera — Nacional',
+  vencidoInt:'Vencidas vs Vigentes — Internacional',agingInt:'Antigüedad de Cartera — Internacional',
+  topClientes:'Top 15 Clientes por Saldo',historical:'Tendencia Histórica de DSO',
+  impacto:'Impacto de Clientes Inactivos en el DSO',dsoPorMoneda:'DSO por Moneda: Local vs USD'
+};
+
+function chartInsight(key,src,locality){
+  const rows=src.rows;
+  if(key.startsWith('vencido')){
+    const venc=Number(rows[0][1])||0,vig=Number(rows[1][1])||0,total=venc+vig;
+    const pct=total?(venc/total*100):0;
+    const loc=LOCALITIES[locality]||LOCALITIES.chile;
+    let cartera;
+    if(key==='vencidoTotal')cartera='total';
+    else{
+      const which=key==='vencidoNac'?'nacional':'internacional';
+      const lbl=portfolioLabel(locality,which);
+      cartera=loc.dualCurrency?('en '+lbl):lbl.toLowerCase();
+    }
+    return{
+      kpis:[{label:'Saldo total',value:fmt(total)},{label:'% Vencido',value:pct.toFixed(1)+'%'},{label:'Vencido',value:fmt(venc)}],
+      text:`Del saldo ${cartera} de ${fmtFull(total)}, un ${pct.toFixed(1)}% (${fmtFull(venc)}) corresponde a facturas vencidas y un ${(100-pct).toFixed(1)}% (${fmtFull(vig)}) a facturas vigentes. `+
+        (pct>=30?'Este nivel de vencimiento es elevado y requiere atención prioritaria de cobranza.':'El nivel de vencimiento se mantiene en un rango manejable.')
+    };
+  }
+  if(key.startsWith('aging')){
+    const vals=rows.map(r=>[r[0],Number(r[1])||0]);
+    const total=vals.reduce((s,r)=>s+r[1],0);
+    const max=vals.reduce((a,b)=>b[1]>a[1]?b:a,vals[0]||['—',0]);
+    const pctMax=total?(max[1]/total*100):0;
+    const late=vals.filter(r=>r[0]==='91-120'||r[0]==='120+').reduce((s,r)=>s+r[1],0);
+    const latePct=total?(late/total*100):0;
+    return{
+      kpis:[{label:'Total vencido',value:fmt(total)},{label:'Tramo mayor',value:max[0]},{label:'+90 días',value:latePct.toFixed(1)+'%'}],
+      text:`La cartera vencida se concentra principalmente en el tramo ${max[0]} días, con ${fmtFull(max[1])} (${pctMax.toFixed(1)}% del total vencido). `+
+        (latePct>=20?`Un ${latePct.toFixed(1)}% de la cartera vencida supera los 90 días, lo que eleva el riesgo de incobrabilidad y sugiere reforzar la gestión de cobranza en estos tramos.`:
+        `Solo un ${latePct.toFixed(1)}% de la cartera vencida supera los 90 días, un nivel de riesgo controlado.`)
+    };
+  }
+  if(key==='topClientes'){
+    const vals=rows.map(r=>[r[0],Number(r[1])||0]);
+    const total=vals.reduce((s,r)=>s+r[1],0);
+    const top1=vals[0]||['—',0];
+    const pct=total?(top1[1]/total*100):0;
+    return{
+      kpis:[{label:'Clientes listados',value:String(vals.length)},{label:'Saldo del ranking',value:fmt(total)},{label:'Mayor concentración',value:pct.toFixed(1)+'%'}],
+      text:`El cliente con mayor saldo pendiente es "${top1[0]}", con ${fmtFull(top1[1])} (${pct.toFixed(1)}% del saldo mostrado en este ranking). `+
+        'Se recomienda priorizar la gestión de cobranza sobre los primeros clientes de esta lista, dado su peso relativo en la cartera total.'
+    };
+  }
+  if(key==='historical'){
+    const vals=rows.map(r=>Number(r[1])||0);
+    const first=vals[0]||0,last=vals[vals.length-1]||0,delta=Math.round((last-first)*10)/10;
+    return{
+      kpis:[{label:'DSO inicial',value:fmtDSO(first)+'d'},{label:'DSO actual',value:fmtDSO(last)+'d'},{label:'Variación',value:(delta>=0?'+':'')+fmtDSO(delta)+'d'}],
+      text:`El DSO evolucionó de ${fmtDSO(first)} a ${fmtDSO(last)} días en el período analizado (variación de ${delta>=0?'+':''}${fmtDSO(delta)} días). `+
+        (delta>0?'Un aumento del DSO indica que la empresa está tardando más en cobrar sus cuentas, lo que puede afectar el flujo de caja.':
+         delta<0?'Una disminución del DSO indica una mejora en la velocidad de cobranza y en la gestión del capital de trabajo.':
+         'El DSO se mantuvo estable durante el período analizado.')
+    };
+  }
+  if(key==='impacto'){
+    const con=Number(rows[0][1])||0,sin=Number(rows[1][1])||0,delta=Math.round((con-sin)*10)/10;
+    return{
+      kpis:[{label:'DSO con inactivos',value:fmtDSO(con)+'d'},{label:'DSO sin inactivos',value:fmtDSO(sin)+'d'},{label:'Impacto',value:(delta>=0?'+':'')+fmtDSO(delta)+'d'}],
+      text:`Si se excluyen los clientes marcados como inactivos del cálculo, el DSO pasaría de ${fmtDSO(con)} a ${fmtDSO(sin)} días, una diferencia de ${delta>=0?'+':''}${fmtDSO(delta)} días. `+
+        (delta>0?'Esto confirma que la cartera inactiva, más difícil de cobrar, está inflando el DSO general de la compañía y merece un plan de cobranza diferenciado.':
+         delta<0?'En este caso, excluir a los inactivos aumentaría el DSO calculado, lo que sugiere que su cartera vencida pesa menos que el resto de la cartera activa.':
+         'Los clientes inactivos no muestran un impacto relevante sobre el DSO en este período.')
+    };
+  }
+  if(key==='dsoPorMoneda'){
+    const nacName=rows[0][0],usdName=rows[1][0];
+    const nac=Number(rows[0][1])||0,usd=Number(rows[1][1])||0,delta=Math.round((nac-usd)*10)/10;
+    return{
+      kpis:[{label:'DSO '+nacName,value:fmtDSO(nac)+'d'},{label:'DSO '+usdName,value:fmtDSO(usd)+'d'},{label:'Diferencia',value:(delta>=0?'+':'')+fmtDSO(delta)+'d'}],
+      text:`El DSO en ${nacName} es de ${fmtDSO(nac)} días, mientras que en ${usdName} es de ${fmtDSO(usd)} días — una diferencia de ${delta>=0?'+':''}${fmtDSO(delta)} días. Cada uno se calculó con su propio monto de ventas real de esa moneda (sin aproximar por proporción de AR). `+
+        (Math.abs(delta)>=10?'Esta diferencia es significativa y sugiere que la gestión de cobranza no es homogénea entre ambas monedas — conviene revisar si hay causas distintas (tipo de cliente, plazos de pago pactados) en cada una.':
+         'Ambas monedas muestran un comportamiento de cobranza relativamente similar en este período.')
+    };
+  }
+  return{kpis:[],text:''};
+}
+
+function pdfDrawHeader(doc,title,subtitle){
+  const w=doc.internal.pageSize.getWidth();
+  doc.setFillColor(...PDF_COLORS.ink);doc.rect(0,0,w,22,'F');
+  doc.setFillColor(...PDF_COLORS.lime);doc.rect(0,22,w,1.1,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(255,255,255);
+  doc.text(title,14,13.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.3);doc.setTextColor(215,215,205);
+  doc.text(subtitle,w-14,13.5,{align:'right'});
+}
+
+function pdfEnsureSpace(doc,y,needed,title,subtitle){
+  const h=doc.internal.pageSize.getHeight();
+  if(y+needed>h-20){
+    doc.addPage();
+    pdfDrawHeader(doc,title,subtitle);
+    return 33;
+  }
+  return y;
+}
+
+function pdfSectionTitle(doc,y,text){
+  doc.setFillColor(...PDF_COLORS.olive);doc.rect(14,y-4,3,5,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(...PDF_COLORS.ink);
+  doc.text(text,20,y);
+  return y+7;
+}
+
+function pdfParagraph(doc,y,text,title,subtitle,maxWidth){
+  doc.setFont('helvetica','normal');doc.setFontSize(9.2);doc.setTextColor(...PDF_COLORS.muted);
+  const lines=doc.splitTextToSize(text,maxWidth);
+  lines.forEach(line=>{
+    y=pdfEnsureSpace(doc,y,6,title,subtitle);
+    doc.text(line,14,y);
+    y+=4.6;
+  });
+  return y+3;
+}
+
+function pdfKpiRow(doc,y,kpis,title,subtitle,maxWidth){
+  if(!kpis.length)return y;
+  y=pdfEnsureSpace(doc,y,20,title,subtitle);
+  const gap=4,boxW=(maxWidth-gap*(kpis.length-1))/kpis.length;
+  kpis.forEach((k,i)=>{
+    const x=14+i*(boxW+gap);
+    doc.setFillColor(...PDF_COLORS.sage);doc.roundedRect(x,y,boxW,16,2,2,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...PDF_COLORS.oliveDark);
+    doc.text(k.label.toUpperCase(),x+3,y+6);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...PDF_COLORS.ink);
+    doc.text(String(k.value),x+3,y+12.5);
+  });
+  return y+16+8;
+}
+
+// ── EXPORT: selected chart sources (Informe PDF tamaño carta / XLSX) ────────
+// ── EXPORT: generador reutilizable del informe (PDF tamaño carta / XLSX) ────
+// Usado tanto por el panel "Exportar" (datos en pantalla) como por la
+// descarga individual de un análisis guardado desde "Mis Análisis".
+function buildInformePDF(sources,keys,reportTitle,periodLabel,filename,locality){
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'letter'});
+    const pageW=doc.internal.pageSize.getWidth();
+    const maxWidth=pageW-28;
+
+    pdfDrawHeader(doc,reportTitle,periodLabel);
+    let y=34;
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(...PDF_COLORS.ink);
+    doc.text('Análisis de Cuentas por Cobrar (DSO)',14,y);y+=7;
+    doc.setFont('helvetica','normal');doc.setFontSize(9.3);doc.setTextColor(...PDF_COLORS.muted);
+    doc.text('Generado el '+new Date().toLocaleString('es-CL'),14,y);y+=8;
+    y=pdfParagraph(doc,y,
+      'Este informe resume las fuentes de datos de los gráficos del dashboard de Cuentas por Cobrar, con el detalle numérico de cada indicador y una breve interpretación para facilitar su lectura.',
+      reportTitle,periodLabel,maxWidth);
+    y+=2;
+
+    let idx=0;
+    keys.forEach(key=>{
+      const src=sources[key];
+      if(!src)return;
+      idx++;
+      const insight=chartInsight(key,src,locality);
+      y=pdfEnsureSpace(doc,y,55,reportTitle,periodLabel);
+      y=pdfSectionTitle(doc,y,idx+'. '+(src.title||CHART_TITLES[key]));
+      y=pdfParagraph(doc,y,insight.text,reportTitle,periodLabel,maxWidth);
+      y=pdfKpiRow(doc,y,insight.kpis,reportTitle,periodLabel,maxWidth);
+      y=pdfEnsureSpace(doc,y,26,reportTitle,periodLabel);
+      doc.autoTable({
+        startY:y,
+        head:[src.headers],
+        body:src.rows.map(r=>[r[0],typeof r[1]==='number'?((key==='historical'||key==='impacto')?fmtDSO(r[1]):fmtFull(r[1])):r[1]]),
+        margin:{left:14,right:14,top:28,bottom:20},
+        styles:{font:'helvetica',fontSize:8.6,textColor:PDF_COLORS.text,cellPadding:2.6},
+        headStyles:{fillColor:PDF_COLORS.ink,textColor:255,fontStyle:'bold',fontSize:8.6},
+        alternateRowStyles:{fillColor:PDF_COLORS.sage},
+        didDrawPage:()=>pdfDrawHeader(doc,reportTitle,periodLabel)
+      });
+      y=doc.lastAutoTable.finalY+10;
+    });
+
+    const totalPages=doc.internal.getNumberOfPages();
+    for(let p=1;p<=totalPages;p++){
+      doc.setPage(p);
+      const h=doc.internal.pageSize.getHeight();
+      doc.setDrawColor(230,228,215);doc.setLineWidth(.3);
+      doc.line(14,h-14,pageW-14,h-14);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.6);doc.setTextColor(...PDF_COLORS.muted);
+      doc.text('Informe generado automáticamente — DSO Dashboard',14,h-9);
+      doc.text('Página '+p+' de '+totalPages,pageW-14,h-9,{align:'right'});
+    }
+    doc.save(filename);
+  }catch(e){alert('No se pudo generar el PDF: '+e.message);}
+}
+function buildInformeXLSX(sources,keys,periodLabel,filename,extraMeta){
+  try{
+    const wb=XLSX.utils.book_new();
+    const meta=[
+      ['Informe','Fuentes de Gráficos — Análisis DSO'],
+      ['Generado',new Date().toLocaleString('es-CL')],
+      ['Período',periodLabel],
+      ...(extraMeta||[]),
+      ['Gráficos incluidos',keys.filter(k=>sources[k]).map(k=>sources[k].title||CHART_TITLES[k]).join(', ')]
+    ];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(meta),'Resumen');
+    keys.forEach(key=>{
+      const src=sources[key];
+      if(!src)return;
+      const ws=XLSX.utils.aoa_to_sheet([src.headers,...src.rows]);
+      XLSX.utils.book_append_sheet(wb,ws,src.sheet.substring(0,31));
+    });
+    XLSX.writeFile(wb,filename);
+  }catch(e){alert('No se pudo generar el XLSX: '+e.message);}
+}
+
+function exportSelectedCharts(format){
+  if(!hasPermission('canDownload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para descargar.');return;}
+  const checked=[...document.querySelectorAll('#chartSelectGrid input:checked')].map(c=>c.value);
+  if(checked.length===0){alert('Selecciona al menos un gráfico para exportar.');return;}
+  const periodLabel=document.getElementById('asOfDate').textContent;
+  if(format==='xlsx'){
+    buildInformeXLSX(exportSources,checked,periodLabel,'DSO_fuentes_graficos.xlsx');
+  }else{
+    buildInformePDF(exportSources,checked,'Informe DSO — Fuentes de Gráficos',periodLabel,'DSO_fuentes_graficos.pdf',currentLocality);
+  }
+}
+
+// ── Descargar el informe PDF de un análisis guardado (botón 📄 en la tarjeta) ─
+async function downloadAnalysisPDF(id){
+  if(!hasPermission('canDownload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para descargar.');return;}
+  const all=await loadSavedAnalyses();
+  const entry=all.find(a=>a.id===id);
+  if(!entry)return;
+  const loc=LOCALITIES[entry.locality]||LOCALITIES.chile;
+  const sources=computeExportSourcesFromParams(entry.params,entry.locality);
+  const periodLabel=loc.flag+' '+loc.label+' · '+MONTH_NAMES[entry.params.dsoMonth-1]+' '+entry.params.dsoYear;
+  const filename='DSO_'+loc.label.replace(/\s+/g,'')+'_'+entry.params.dsoYear+'_'+String(entry.params.dsoMonth).padStart(2,'0')+'.pdf';
+  buildInformePDF(sources,Object.keys(sources),'Informe DSO — '+loc.label,periodLabel,filename,entry.locality);
+}
+
+// ── Descargar TODOS los análisis guardados en un solo XLSX (botón global) ────
+// (La descarga global de "Mis Análisis" ahora se hace con el export genérico
+// de la tabla — exportTableData('misAnalisis','xlsx'/'pdf') — respeta
+// filtros/selección en vez de exportar siempre todo.)
+
+// ── EXPORT: generic file writers ─────────────────────────────────────────────
+function downloadXLSX(filename,headers,rows){
+  try{
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+    XLSX.utils.book_append_sheet(wb,ws,'Datos');
+    XLSX.writeFile(wb,filename+'.xlsx');
+  }catch(e){alert('No se pudo generar el XLSX: '+e.message);}
+}
+function downloadPDFTable(title,headers,rows){
+  try{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:headers.length>6?'landscape':'portrait'});
+    doc.setFontSize(13);doc.text(title,14,16);
+    doc.autoTable({head:[headers],body:rows,startY:22,styles:{fontSize:8},headStyles:{fillColor:[28,28,21],textColor:255}});
+    doc.save(title.replace(/\s+/g,'_')+'.pdf');
+  }catch(e){alert('No se pudo generar el PDF: '+e.message);}
+}
+
+// ── SLACK: enviar resumen vía Incoming Webhook ───────────────────────────────
+function sendSlackSummary(){
+  if(!hasPermission('canDownload')){alert('Tu perfil ('+ROLE_LABELS[currentUser.role]+') no tiene permiso para descargar.');return;}
+  const statusEl=document.getElementById('slackStatus');
+  const setStatus=(msg,color)=>{statusEl.textContent=msg;statusEl.style.color=color;};
+
+  const url=document.getElementById('slackWebhookUrl').value.trim();
+  if(!url){setStatus('⚠️ Ingresa la URL del Incoming Webhook de Slack.','var(--danger)');return;}
+  if(!/^https:\/\/hooks\.slack\.com\//.test(url)){setStatus('⚠️ Esa no parece ser una URL de Incoming Webhook de Slack válida (debe empezar con https://hooks.slack.com/).','var(--danger)');return;}
+
+  const dsoTxt=document.getElementById('kpiDSO').textContent;
+  if(dsoTxt==='—'){setStatus('⚠️ Primero genera el dashboard (Carga de Datos → Mapeo → Generar Dashboard).','var(--danger)');return;}
+
+  const monthLabel=document.getElementById('asOfDate').textContent;
+  const arTxt=document.getElementById('kpiAR').textContent;
+  const vencTxt=document.getElementById('kpiVencido').textContent;
+  const vencSub=document.getElementById('kpiVencidoSub').textContent;
+  const churnTxt=document.getElementById('kpiChurn').textContent;
+  const dsoConTxt=document.getElementById('kpiDSOConInactivos').textContent;
+  const dsoSinTxt=document.getElementById('kpiDSOSinInactivos').textContent;
+  const impactoTxt=document.getElementById('kpiImpactoInactivos').textContent;
+  const dsoNacTxt=document.getElementById('kpiDSONac').textContent;
+  const dsoIntTxt=document.getElementById('kpiDSOInt').textContent;
+
+  const payload={
+    text:'📊 Informe DSO — '+monthLabel,
+    blocks:[
+      {type:'header',text:{type:'plain_text',text:'📊 Informe DSO'}},
+      {type:'context',elements:[{type:'mrkdwn',text:monthLabel}]},
+      {type:'divider'},
+      {type:'section',fields:[
+        {type:'mrkdwn',text:'*DSO Total:*\n'+dsoTxt},
+        {type:'mrkdwn',text:'*Total AR:*\n'+arTxt},
+        {type:'mrkdwn',text:'*% Vencido:*\n'+vencTxt+'  ('+vencSub+')'},
+        {type:'mrkdwn',text:'*Clientes Churn:*\n'+churnTxt}
+      ]},
+      {type:'divider'},
+      {type:'section',text:{type:'mrkdwn',text:'*🚫 Impacto de Clientes Inactivos en el DSO*'}},
+      {type:'section',fields:[
+        {type:'mrkdwn',text:'*Con inactivos:*\n'+dsoConTxt},
+        {type:'mrkdwn',text:'*Sin inactivos:*\n'+dsoSinTxt},
+        {type:'mrkdwn',text:'*Impacto:*\n'+impactoTxt}
+      ]},
+      {type:'divider'},
+      {type:'section',fields:[
+        {type:'mrkdwn',text:'*DSO Nacional:*\n'+dsoNacTxt},
+        {type:'mrkdwn',text:'*DSO Internacional:*\n'+dsoIntTxt}
+      ]},
+      {type:'context',elements:[{type:'mrkdwn',text:'Generado automáticamente desde el DSO Dashboard · '+new Date().toLocaleString('es-CL')}]}
+    ]
+  };
+
+  setStatus('Enviando…','var(--muted)');
+
+  // mode:'no-cors' + Content-Type text/plain evita el preflight CORS que bloquean
+  // los navegadores al llamar directamente a hooks.slack.com desde un archivo local.
+  // La respuesta queda "opaca" (no podemos leer el resultado), pero la petición sí se envía.
+  fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
+    .then(()=>setStatus('✅ Mensaje enviado. Revisa el canal de Slack (el navegador no permite confirmar la respuesta exacta de Slack por seguridad CORS).','var(--olive-dark)'))
+    .catch(err=>setStatus('❌ No se pudo enviar: '+err.message+'. Revisa la URL del webhook o tu conexión a internet.','var(--danger)'));
+}
+
+// ── LOGIN + ROLES Y PERMISOS (Supabase Auth real) ───────────────────────────
+// Cada usuario tiene un rol, y cada rol define qué puede hacer:
+//   Administrador       → puede cargar (subir/generar/guardar) y eliminar
+//   Collection Analyst   → solo puede ver análisis anteriores y descargar
+//   Consultor            → solo puede ver, no descarga ni carga nada
+// Los usuarios y contraseñas reales viven en Supabase Auth (Authentication →
+// Users), NO en este archivo. El rol de cada uno vive en la tabla `profiles`
+// (columna `role`) — ver supabase/SETUP.md para crear usuarios y asignar rol.
+const ROLE_LABELS={admin:'Administrador',analyst:'Collection Analyst',consultor:'Consultor'};
+const PERMISSIONS={
+  admin:{canUpload:true,canDelete:true,canDownload:true},
+  analyst:{canUpload:false,canDelete:false,canDownload:true},
+  consultor:{canUpload:false,canDelete:false,canDownload:false}
+};
+let currentUser=null; // {email,role,name}
+function currentPermissions(){return PERMISSIONS[currentUser&&currentUser.role]||PERMISSIONS.consultor;}
+function hasPermission(key){return !!currentPermissions()[key];}
+async function applyRolePermissions(){
+  const perm=currentPermissions();
+  document.querySelectorAll('.perm-upload').forEach(el=>el.style.display=perm.canUpload?'':'none');
+  document.querySelectorAll('.perm-delete').forEach(el=>el.style.display=perm.canDelete?'':'none');
+  document.querySelectorAll('.perm-download').forEach(el=>el.style.display=perm.canDownload?'':'none');
+  const badge=document.getElementById('userRoleBadge');
+  if(badge&&currentUser)badge.textContent='👤 '+currentUser.name+' · '+ROLE_LABELS[currentUser.role];
+  await refreshMisAnalisisTable(); // re-renderiza la columna Acciones con los permisos correctos
+}
+async function handleLogin(e){
+  e.preventDefault();
+  const email=document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('loginPassword').value;
+  const errEl=document.getElementById('loginError');
+  const btn=document.querySelector('#loginForm button[type="submit"]');
+  if(btn){btn.disabled=true;btn.textContent='Ingresando…';}
+
+  const {data,error}=await supabase.auth.signInWithPassword({email,password:pass});
+  if(error||!data.user){
+    errEl.textContent='Correo o contraseña incorrectos.';
+    document.getElementById('loginPassword').value='';
+    if(btn){btn.disabled=false;btn.textContent='Ingresar';}
+    return;
+  }
+
+  const {data:profile,error:profileError}=await supabase.from('profiles').select('name,role').eq('id',data.user.id).single();
+  if(profileError||!profile){
+    errEl.textContent='Tu usuario existe pero no tiene un perfil asignado. Contacta al administrador de Supabase.';
+    await supabase.auth.signOut();
+    if(btn){btn.disabled=false;btn.textContent='Ingresar';}
+    return;
+  }
+
+  currentUser={email,role:profile.role,name:profile.name||email};
+  errEl.textContent='';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appLayout').style.display='';
+  if(btn){btn.disabled=false;btn.textContent='Ingresar';}
+  await applyRolePermissions();
+}
+async function handleLogout(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  await supabase.auth.signOut();
+  document.getElementById('appLayout').style.display='none';
+  document.getElementById('loginScreen').style.display='';
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPassword').value='';
+  document.getElementById('loginError').textContent='';
+  currentUser=null;
+  // Al volver a entrar, arrancar en Inicio (no dejar un dashboard expuesto sin re-loguearse)
+  currentAnalysisId=null;
+  refreshSidebar('home');
+  showScreen('home');
+}
+// Si ya había una sesión activa de Supabase (el usuario no cerró sesión la
+// última vez y volvió a abrir el archivo), la recuperamos automáticamente en
+// vez de mostrarle el login de nuevo.
+async function restoreSession(){
+  const {data}=await supabase.auth.getSession();
+  if(!data.session)return false;
+  const {data:profile,error}=await supabase.from('profiles').select('name,role').eq('id',data.session.user.id).single();
+  if(error||!profile)return false;
+  currentUser={email:data.session.user.email,role:profile.role,name:profile.name||data.session.user.email};
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appLayout').style.display='';
+  await applyRolePermissions();
+  return true;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+selectLocality('chile');
+refreshSidebar('home');
+showScreen('home');
+restoreSession(); // si había una sesión de Supabase activa, entra directo sin pedir login de nuevo
+
+</script>
+</body>
+</html>
